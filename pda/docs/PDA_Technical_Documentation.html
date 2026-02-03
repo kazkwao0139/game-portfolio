@@ -1,0 +1,4956 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDA Technical Documentation v0.6</title>
+    <script>
+        MathJax = {
+            svg: {
+                fontCache: 'global',
+                scale: 1.05
+            },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    MathJax.startup.promise.then(() => {
+                        document.querySelectorAll('mjx-container svg').forEach(svg => {
+                            svg.style.fill = '#e8e8e8';
+                        });
+                    });
+                }
+            }
+        };
+    </script>
+    <style>
+        mjx-container svg { fill: #e8e8e8 !important; }
+    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" type="text/javascript"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            color: #e8e8e8;
+            line-height: 1.8;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        /* Header */
+        header {
+            text-align: center;
+            padding: 60px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 50px;
+        }
+        
+        header h1 {
+            font-size: 2.8em;
+            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        
+        header .subtitle {
+            font-size: 1.2em;
+            color: #888;
+            font-weight: 300;
+        }
+        
+        header .confidential {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 20px;
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid #e94560;
+            border-radius: 4px;
+            color: #e94560;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+        
+        /* TOC */
+        #TOC {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 30px 40px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        #TOC::before {
+            content: "📑 목차 (Table of Contents)";
+            display: block;
+            font-size: 1.3em;
+            color: #00d4ff;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        #TOC ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        #TOC > ul > li {
+            margin-bottom: 15px;
+        }
+        
+        #TOC ul ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+        
+        #TOC a {
+            color: #aaa;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        #TOC a:hover {
+            color: #00d4ff;
+        }
+        
+        #TOC > ul > li > a {
+            color: #ddd;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+        
+        /* Content sections */
+        .content {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        h1 {
+            font-size: 2em;
+            background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 60px 0 30px 0;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        h2 {
+            font-size: 1.5em;
+            color: #00d4ff;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        h3 {
+            font-size: 1.2em;
+            color: #7b2cbf;
+            margin: 30px 0 15px 0;
+        }
+        
+        h4, h5, h6 {
+            color: #9370db;
+            margin: 20px 0 10px 0;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            color: #ccc;
+        }
+        
+        strong {
+            color: #fff;
+        }
+        
+        em {
+            color: #ddd;
+        }
+        
+        /* Lists */
+        ul, ol {
+            margin: 15px 0 15px 25px;
+            color: #bbb;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            display: table;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        th {
+            background: rgba(0, 212, 255, 0.15);
+            color: #00d4ff;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+        
+        td {
+            color: #bbb;
+        }
+        
+        tbody {
+            border: none;
+        }
+        
+        tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        
+        /* Blockquotes */
+        blockquote {
+            background: rgba(123, 44, 191, 0.1);
+            border-left: 4px solid #7b2cbf;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+            color: #ccc;
+        }
+        
+        /* Code */
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #00d4ff;
+        }
+        
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        /* Math (MathJax SVG) */
+        mjx-container {
+            color: #e8e8e8 !important;
+        }
+        
+        mjx-container svg {
+            fill: #e8e8e8 !important;
+        }
+        
+        mjx-container[jax="SVG"][display="true"] {
+            display: block !important;
+            text-align: center !important;
+            margin: 1.2em 0 !important;
+        }
+        
+        .math.display {
+            display: block;
+            text-align: center;
+            margin: 1em 0;
+        }
+        
+        /* Links */
+        a {
+            color: #00d4ff;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        /* HR */
+        hr {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin: 40px 0;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 0.9em;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: 50px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+            
+            .content, #TOC {
+                padding: 20px;
+            }
+            
+            h1 { font-size: 1.6em; }
+            h2 { font-size: 1.3em; }
+            
+            table {
+                font-size: 0.85em;
+            }
+        }
+        
+        /* Print */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            
+            h1, h2, h3 {
+                -webkit-text-fill-color: #1a1a2e;
+                color: #1a1a2e;
+                background: none;
+            }
+            
+            .content, #TOC {
+                background: white;
+                border: 1px solid #ddd;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PDA Technical Documentation</h1>
+            <p class="subtitle">수학적 모델 & 시스템 정의서 v0.6</p>
+            <span class="confidential">CONFIDENTIAL</span>
+        </header>
+        
+        <nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#pda-스노볼-교착-감지-함수"
+id="toc-pda-스노볼-교착-감지-함수">PDA 스노볼 &amp; 교착 감지 함수</a>
+<ul>
+<li><a href="#수학적-모델-정의서" id="toc-수학적-모델-정의서">수학적
+모델 정의서</a></li>
+<li><a href="#팀-전투력-함수" id="toc-팀-전투력-함수">1. 팀 전투력
+함수</a>
+<li><a href="#xp-소스-분리" id="toc-xp-소스-분리">2. XP 소스 분리</a>
+<li><a href="#자원의-한정성-정리" id="toc-자원의-한정성-정리">3. 자원의
+한정성 정리</a>
+<li><a href="#격차-함수-스노볼-지표" id="toc-격차-함수-스노볼-지표">4.
+격차 함수 (스노볼 지표)</a></li>
+<li><a href="#모델-버전-1-순수-선형-이론적-모델"
+id="toc-모델-버전-1-순수-선형-이론적-모델">5. 모델 버전 1: 순수 선형
+(이론적 모델)</a>
+<li><a href="#모델-버전-2-약한-초선형-실제-모델"
+id="toc-모델-버전-2-약한-초선형-실제-모델">6. 모델 버전 2: 약한 초선형
+(실제 모델)</a>
+<li><a href="#경계-조건에-의한-상한-후반-게임-역학"
+id="toc-경계-조건에-의한-상한-후반-게임-역학">7. 경계 조건에 의한 상한
+(후반 게임 역학)</a>
+<li><a href="#교착-상태-감지" id="toc-교착-상태-감지">8. 교착 상태
+감지</a>
+<li><a href="#오브젝트-스폰-규칙" id="toc-오브젝트-스폰-규칙">9.
+오브젝트 스폰 규칙</a>
+<li><a href="#선형성-유지-제약-조건" id="toc-선형성-유지-제약-조건">10.
+선형성 유지 제약 조건</a></li>
+<li><a href="#시스템-비교" id="toc-시스템-비교">11. 시스템 비교</a></li>
+<li><a href="#요약" id="toc-요약">12. 요약</a></li>
+</ul></li>
+<li><a href="#pda-채널링-시간-도출-모델"
+id="toc-pda-채널링-시간-도출-모델">PDA 채널링 시간 도출 모델</a>
+<ul>
+<li><a href="#반응-확산-방정식과-란체스터-법칙-기반"
+id="toc-반응-확산-방정식과-란체스터-법칙-기반">반응-확산 방정식과
+란체스터 법칙 기반</a></li>
+<li><a href="#개요" id="toc-개요">1. 개요</a></li>
+<li><a href="#변수-정의" id="toc-변수-정의">2. 변수 정의</a>
+<li><a href="#적-도착-시간-모델" id="toc-적-도착-시간-모델">3. 적 도착
+시간 모델</a>
+<li><a href="#란체스터-제곱-법칙-수정"
+id="toc-란체스터-제곱-법칙-수정">4. 란체스터 제곱 법칙 (수정)</a>
+<li><a href="#채널링-윈도우-팀파이트-후"
+id="toc-채널링-윈도우-팀파이트-후">5. 채널링 윈도우 (팀파이트 후)</a>
+<li><a href="#균형-채널링-시간-도출" id="toc-균형-채널링-시간-도출">6.
+균형 채널링 시간 도출</a>
+<li><a href="#제약-조건" id="toc-제약-조건">7. 제약 조건</a>
+<li><a href="#노드별-채널링-시간" id="toc-노드별-채널링-시간">8. 노드별
+채널링 시간</a>
+<li><a href="#시스템-다이어그램" id="toc-시스템-다이어그램">9. 시스템
+다이어그램</a></li>
+<li><a href="#요약-1" id="toc-요약-1">10. 요약</a>
+<li><a href="#다중-채널링-시스템-확장"
+id="toc-다중-채널링-시스템-확장">11. 다중 채널링 시스템 (확장)</a>
+<li><a href="#신규-챔피언-밸런싱-예측"
+id="toc-신규-챔피언-밸런싱-예측">13. 신규 챔피언 밸런싱 예측</a>
+<li><a href="#능력치-버젯-모델"
+id="toc-능력치-버젯-모델">14. 능력치 버젯 모델</a>
+<li><a href="#반응-확산-방정식과의-연결"
+id="toc-반응-확산-방정식과의-연결">15. 반응-확산 방정식과의 연결</a>
+</ul></li>
+<li><a href="#pda-채널링-시간-공식의-유도"
+id="toc-pda-채널링-시간-공식의-유도">PDA 채널링 시간 공식의 유도</a>
+<ul>
+<li><a href="#차원-해석dimensional-analysis을-통한-특성-시간-도출"
+id="toc-차원-해석dimensional-analysis을-통한-특성-시간-도출">차원
+해석(Dimensional Analysis)을 통한 특성 시간 도출</a></li>
+<li><a href="#q.-정상-상태-조건에서-선형-공식이-어떻게-도출되는가"
+id="toc-q.-정상-상태-조건에서-선형-공식이-어떻게-도출되는가">Q. 정상
+상태 조건에서 선형 공식이 어떻게 도출되는가?</a></li>
+<li><a href="#a.-답변" id="toc-a.-답변">A. 답변</a></li>
+<li><a href="#지배-방정식-정의-1차원-단순화"
+id="toc-지배-방정식-정의-1차원-단순화">1. 지배 방정식 정의 (1차원
+단순화)</a></li>
+<li><a href="#정상-상태steady-state-가정"
+id="toc-정상-상태steady-state-가정">2. 정상 상태(Steady State)
+가정</a></li>
+<li><a href="#스케일링scaling-및-차원-해석"
+id="toc-스케일링scaling-및-차원-해석">3. 스케일링(Scaling) 및 차원
+해석</a>
+<li><a href="#선형-결합-linear-combination"
+id="toc-선형-결합-linear-combination">4. 선형 결합 (Linear
+Combination)</a></li>
+<li><a href="#계수-해석" id="toc-계수-해석">5. 계수 해석</a></li>
+<li><a href="#차원-검증" id="toc-차원-검증">6. 차원 검증</a></li>
+<li><a href="#방법론적-정당성" id="toc-방법론적-정당성">7. 방법론적
+정당성</a></li>
+<li><a href="#요약-2" id="toc-요약-2">8. 요약</a></li>
+</ul></li>
+<li><a href="#pda-내시균형-분석" id="toc-pda-내시균형-분석">PDA 내시균형
+분석</a>
+<ul>
+<li><a href="#게임-이론적-관점" id="toc-게임-이론적-관점">게임 이론적
+관점</a></li>
+<li><a href="#핵심-질문" id="toc-핵심-질문">1. 핵심 질문</a></li>
+<li><a href="#내시균형-존재-조건" id="toc-내시균형-존재-조건">2.
+내시균형 존재 조건</a>
+<li><a href="#결론-존재하지만-찾기-어려움"
+id="toc-결론-존재하지만-찾기-어려움">3. 결론: 존재하지만 찾기 어려움</a>
+<li><a href="#lol과의-구조적-비교" id="toc-lol과의-구조적-비교">4.
+LoL과의 구조적 비교</a>
+<li><a href="#메타-고착화-저항-구조" id="toc-메타-고착화-저항-구조">5.
+메타 고착화 저항 구조</a>
+<li><a href="#반응-확산-pde-기반-밸런싱"
+id="toc-반응-확산-pde-기반-밸런싱">6. 반응-확산 PDE 기반 밸런싱</a>
+<li><a href="#요약-3" id="toc-요약-3">7. 요약</a>
+</ul></li>
+<li><a href="#pda는-재미있을까" id="toc-pda는-재미있을까">PDA는
+재미있을까?</a>
+<ul>
+<li><a href="#히치콕의-서스펜스-구조로-분석하는-게임의-긴장감"
+id="toc-히치콕의-서스펜스-구조로-분석하는-게임의-긴장감">히치콕의
+서스펜스 구조로 분석하는 게임의 긴장감</a></li>
+<li><a href="#핵심-질문-1" id="toc-핵심-질문-1">1. 핵심 질문</a></li>
+<li><a href="#알프레드-히치콕의-서스펜스-이론"
+id="toc-알프레드-히치콕의-서스펜스-이론">2. 알프레드 히치콕의 서스펜스
+이론</a>
+<li><a href="#배틀그라운드-분석" id="toc-배틀그라운드-분석">3.
+배틀그라운드 분석</a>
+<li><a href="#lol-라인전-분석" id="toc-lol-라인전-분석">4. LoL 라인전
+분석</a>
+<li><a href="#pda-구조-분석" id="toc-pda-구조-분석">5. PDA 구조 분석</a>
+<li><a href="#세-게임-비교" id="toc-세-게임-비교">6. 세 게임 비교</a>
+<li><a href="#우려에-대한-반론" id="toc-우려에-대한-반론">7. 우려에 대한
+반론</a>
+<li><a href="#결론-1" id="toc-결론-1">8. 결론</a>
+</ul></li>
+<li><a href="#pda-용어집-glossary" id="toc-pda-용어집-glossary">PDA
+용어집 (Glossary)</a>
+<ul>
+<li><a href="#moba-pda-용어-대응표" id="toc-moba-pda-용어-대응표">MOBA →
+PDA 용어 대응표</a></li>
+<li><a href="#전장-the-network" id="toc-전장-the-network">1. 전장 (The
+Network)</a></li>
+<li><a href="#플레이어-the-actors" id="toc-플레이어-the-actors">2.
+플레이어 (The Actors)</a></li>
+<li><a href="#생존-및-전투-survival-combat"
+id="toc-생존-및-전투-survival-combat">3. 생존 및 전투 (Survival &amp;
+Combat)</a></li>
+<li><a href="#상태-이상-status-effects"
+id="toc-상태-이상-status-effects">4. 상태 이상 (Status Effects)</a></li>
+<li><a href="#게임-결과-the-end" id="toc-게임-결과-the-end">5. 게임 결과
+(The End)</a></li>
+<li><a href="#유지-용어-unchanged-terms"
+id="toc-유지-용어-unchanged-terms">6. 유지 용어 (Unchanged
+Terms)</a></li>
+<li><a href="#제외-용어-excluded-terms"
+id="toc-제외-용어-excluded-terms">7. 제외 용어 (Excluded Terms)</a></li>
+<li><a href="#스탯-stats" id="toc-스탯-stats">8. 스탯 (Stats)</a></li>
+<li><a href="#세계관-일관성" id="toc-세계관-일관성">9. 세계관
+일관성</a></li>
+<li><a href="#용어-설계-원칙" id="toc-용어-설계-원칙">10. 용어 설계
+원칙</a></li>
+</ul></li>
+<li><a href="#resource-economy" id="toc-resource-economy">자원 경제 시스템 (Resource Economy System)</a>
+<ul>
+<li><a href="#team-level-system" id="toc-team-level-system">1. 팀 레벨 시스템</a></li>
+<li><a href="#weapon-level-sunk-cost" id="toc-weapon-level-sunk-cost">2. 무기 레벨 시스템과 매몰비용</a></li>
+<li><a href="#weapon-selection-opportunity-cost" id="toc-weapon-selection-opportunity-cost">3. 무기 선택과 기회비용</a></li>
+<li><a href="#integrity-recovery-base-cost" id="toc-integrity-recovery-base-cost">4. Integrity 회복 제한과 베이스 비용</a></li>
+<li><a href="#decision-tree-explosion" id="toc-decision-tree-explosion">5. 의사결정 트리의 폭발</a></li>
+<li><a href="#mathematical-modeling-economy" id="toc-mathematical-modeling-economy">6. 수학적 모델링</a></li>
+</ul></li>
+<li><a href="#failure-cost-resistance" id="toc-failure-cost-resistance">채널링 실패와 방어력의 재정의</a>
+<ul>
+<li><a href="#combat-stats" id="toc-combat-stats">1. 전투 스탯 정의</a></li>
+<li><a href="#channeling-failure" id="toc-channeling-failure">2. 채널링 실패와 후딜레이</a></li>
+<li><a href="#resistance-rediscovery" id="toc-resistance-rediscovery">3. 방어력의 재발견: 실패 비용 함수</a></li>
+</ul></li>
+<li><a href="#cc-quantification" id="toc-cc-quantification">시스템 상태의 정량화: 등가 DPS 모델</a>
+<ul>
+<li><a href="#cc-definition" id="toc-cc-definition">1. 시스템 상태(CC)의 정의</a></li>
+<li><a href="#cc-equivalent-dps" id="toc-cc-equivalent-dps">2. 등가 DPS 공식</a></li>
+<li><a href="#cc-balance-application" id="toc-cc-balance-application">3. 밸런싱 적용</a></li>
+</ul></li>
+<li><a href="#mmr-human-error" id="toc-mmr-human-error">매치메이킹 시스템: 휴먼 에러 보정</a>
+<ul>
+<li><a href="#mmr-philosophy">1. 핵심 철학</a></li>
+<li><a href="#mmr-variables">2. 변수 정의</a></li>
+<li><a href="#mmr-performance">3. 퍼포먼스 점수</a></li>
+<li><a href="#mmr-acceleration">4. 두 개의 가속 항</a></li>
+<li><a href="#mmr-formula">5. MMR 가속도 공식</a></li>
+<li><a href="#mmr-examples">6. 작동 예시</a></li>
+<li><a href="#mmr-convergence">7. 수렴 메커니즘</a></li>
+<li><a href="#mmr-matching">8. 매칭 적용</a></li>
+<li><a href="#mmr-summary">9. 요약</a></li>
+</ul></li>
+<li><a href="#qa" id="toc-qa">예상 질문 &amp; 답변 (Q&amp;A)</a></li>
+<li><a href="#dev-guide">개발팀을 위한 가이드</a></li>
+
+</ul>
+</nav>
+        
+        <div class="content">
+        <h1 id="pda-스노볼-교착-감지-함수">PDA 스노볼 &amp; 교착 감지 함수</h1>
+<h2 id="수학적-모델-정의서">수학적 모델 정의서</h2>
+<hr />
+<h2 id="팀-전투력-함수">1. 팀 전투력 함수</h2>
+<p><span class="math display">\[ P(t) = w_L \cdot L(t) + w_N \cdot N(t) + w_X \cdot X(t) + w_C \cdot C(t) \]</span></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+<th>범위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(P(t)\)</span></td>
+<td>시간 <span class="math inline">\(t\)</span>에서의 팀 전투력</td>
+<td><span class="math inline">\(\mathbb{R}^+\)</span></td>
+</tr>
+<tr>
+<td><span class="math inline">\(L(t)\)</span></td>
+<td>공유 팀 레벨</td>
+<td><span class="math inline">\([1, L_{\max}]\)</span></td>
+</tr>
+<tr>
+<td><span class="math inline">\(N(t)\)</span></td>
+<td>노드 점령 가치: <span class="math inline">\(\displaystyle\sum_{i \in
+\text{점령중}} v_i\)</span></td>
+<td><span class="math inline">\([0, N_{\max}]\)</span></td>
+</tr>
+<tr>
+<td><span class="math inline">\(X(t)\)</span></td>
+<td>팀 무기 XP 총량</td>
+<td><span class="math inline">\(\mathbb{R}^+\)</span></td>
+</tr>
+<tr>
+<td><span class="math inline">\(C(t)\)</span></td>
+<td>정보 장악률 (CCTV 점유율)</td>
+<td><span class="math inline">\([0, 1]\)</span></td>
+</tr>
+<tr>
+<td><span class="math inline">\(w_i\)</span></td>
+<td>가중치 계수, <span class="math inline">\(\displaystyle\sum_i w_i =
+1\)</span></td>
+<td><span class="math inline">\([0, 1]\)</span></td>
+</tr>
+</tbody>
+</table>
+<h3 id="노드-가치-고정값">노드 가치 (고정값)</h3>
+<p><span class="math display">\[ v_i = \begin{cases} 1 &amp; \text{1차 앵커} \\ 2 &amp; \text{2차 앵커} \\ 5 &amp; \text{3차 앵커} \end{cases} \]</span></p>
+<p style="color: #888; font-size: 0.9em; margin-top: -0.5em;"><em>※ 위 수치는 개념 설명을 위한 예시이며, 실제 값은 밸런싱 과정에서 조정됩니다.</em></p>
+<hr />
+<h2 id="xp-소스-분리">2. XP 소스 분리</h2>
+<p><span class="math display">\[ X(t) = X_{\text{node}}(t) + X_{\text{downlink}}(t) \]</span></p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>소스</th>
+<th>정의</th>
+<th>상한</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(X_{\text{node}}(t)\)</span></td>
+<td>노드 점령으로 얻는 XP</td>
+<td><span class="math inline">\(X_{\text{node}}^{\max}\)</span></td>
+<td><strong>한정</strong></td>
+</tr>
+<tr>
+<td><span class="math inline">\(X_{\text{downlink}}(t)\)</span></td>
+<td>다운(킬)으로 얻는 XP</td>
+<td><span class="math inline">\(\infty\)</span> (획득 기회)</td>
+<td><strong>아래 참조</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="다운링크-xp의-특성">다운링크 XP의 특성</h3>
+<ol type="1">
+<li><strong>1v1 다운 &gt; 4v1 다운</strong> (기여도 가중 배분)</li>
+<li><strong>킬당 XP는 고정값</strong> (XP 자체가 늘어나지 않음)</li>
+<li><strong>획득 기회는 무한</strong> (영토/CCTV/노드XP는 상한
+존재)</li>
+<li><strong>약한 피드백</strong>: XP 많으면 → 다음 전투 유리 → 다음 XP
+얻기 쉬움</li>
+</ol>
+<h3 id="다운링크-xp-배분-모델">다운링크 XP 배분 모델</h3>
+<blockquote>
+<p><strong>설계 의도:</strong> 솔로 캐리가 불가능하다는 우려를 인지하고
+있습니다. 그래서 솔로 다운링크의 가치가 크다고 설계했습니다.</p>
+</blockquote>
+<p><strong>모델 1: 균등 배분</strong> <span class="math display">\[ XP_{팀} = XP_{base} \times \frac{1}{n} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>n</th>
+<th>XP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>25%</td>
+</tr>
+</tbody>
+</table>
+<p>직관적. 플레이어 체감 좋습니다.</p>
+<p><strong>모델 2: 란체스터 기반</strong> <span class="math display">\[ XP_{팀} = XP_{base} \times \frac{1}{n^2} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>n</th>
+<th>XP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>6.25%</td>
+</tr>
+</tbody>
+</table>
+<p>수학적 일관성. 리스크-리워드 연동입니다.</p>
+<p><strong>모델 3: 하이브리드 (가중 평균)</strong> <span
+class="math display">\[
+XP_{팀} = XP_{base} \times \left( \alpha \cdot \frac{1}{n} + (1-\alpha)
+\cdot \frac{1}{n^2} \right)
+\]</span></p>
+<table>
+<thead>
+<tr>
+<th>n</th>
+<th>α=1.0</th>
+<th>α=0.7</th>
+<th>α=0.5</th>
+<th>α=0.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>100%</td>
+<td>100%</td>
+<td>100%</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>2</td>
+<td>50%</td>
+<td>42.5%</td>
+<td>37.5%</td>
+<td>25%</td>
+</tr>
+<tr>
+<td>4</td>
+<td>25%</td>
+<td>19.7%</td>
+<td>15.6%</td>
+<td>6.25%</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{구조는 고정, 수치(α)는 튜닝}} \]</span></p>
+<blockquote>
+<p><strong>주:</strong> <span class="math inline">\(n\)</span>은 킬에
+참여한 아군 인원수. <span class="math inline">\(XP_{base}\)</span>는 1v1
+킬 시 팀이 받는 기본 XP. 팀 레벨은 공유이므로, 획득한 <span
+class="math inline">\(XP_{팀}\)</span>은 팀원 전체에게 동일하게
+적용됩니다.</p>
+</blockquote>
+<blockquote>
+<p><strong>저자 주:</strong> 수학적 엄밀함을 택해야 할지, 현실과
+타협해야 할지 고민하다가 일단 세 모델 다 적는다. 하이브리드 모델의 α는
+데이터팀과 밸런스팀이 멋지게 튜닝해줄 거라 믿습니다.</p>
+<p>물론 솔로 다운링크를 미친 듯이 터뜨리는 플레이어가 있을 수 있습니다.
+그렇게 되면 초선형이 아니라 지수함수형으로 스노볼이 폭주하기 시작하지만,
+<strong>그건 그저 그 플레이어가 지나치게 잘해서 생기는 일이지 시스템의
+문제는 아니라고 생각합니다.</strong></p>
+</blockquote>
+<hr />
+<h2 id="자원의-한정성-정리">3. 자원의 한정성 정리</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>자원</th>
+<th>상한</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(L(t)\)</span></td>
+<td><span class="math inline">\(L_{\max} = 5\)</span></td>
+<td>한정</td>
+</tr>
+<tr>
+<td><span class="math inline">\(N(t)\)</span></td>
+<td><span class="math inline">\(N_{\max}\)</span> = 맵 노드 총합</td>
+<td>한정</td>
+</tr>
+<tr>
+<td><span class="math inline">\(C(t)\)</span></td>
+<td><span class="math inline">\(C_{\max} = 1\)</span></td>
+<td>한정</td>
+</tr>
+<tr>
+<td><span class="math inline">\(X_{\text{node}}(t)\)</span></td>
+<td><span class="math inline">\(X_{\text{node}}^{\max}\)</span></td>
+<td>한정</td>
+</tr>
+<tr>
+<td><span class="math inline">\(X_{\text{downlink}}(t)\)</span></td>
+<td><span class="math inline">\(\infty\)</span> (획득)</td>
+<td><strong>단, 효과는 <span class="math inline">\(L_{\max}\)</span>에서
+소멸</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="핵심-구분-획득-vs-효과">핵심 구분: 획득 vs 효과</h3>
+<p><span class="math display">\[ \boxed{\text{XP 획득} \neq \text{전투력 전환}} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>상한</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>다운링크 XP <strong>획득</strong></td>
+<td>무한 (킬 횟수 제한 없음)</td>
+</tr>
+<tr>
+<td>다운링크 XP <strong>효과</strong> (→ 레벨)</td>
+<td><span class="math inline">\(L_{\max} = 5\)</span></td>
+</tr>
+</tbody>
+</table>
+<p><strong>레벨 5 도달 이후:</strong> - XP 계속 획득 가능 - 그러나 <span
+class="math inline">\(L(t) = L_{\max}\)</span> → 레벨업 없음 - 전투력
+<span class="math inline">\(P(t)\)</span>에 기여하는 <span
+class="math inline">\(w_L \cdot L(t)\)</span> 항 고정 - <strong>XP의
+전투력 전환 효과 소멸</strong></p>
+<hr />
+<h2 id="격차-함수-스노볼-지표">4. 격차 함수 (스노볼 지표)</h2>
+<p><span class="math display">\[ G(t) = P_A(t) - P_B(t) \]</span></p>
+<hr />
+<h2 id="모델-버전-1-순수-선형-이론적-모델">5. 모델 버전 1: 순수 선형
+(이론적 모델)</h2>
+<blockquote>
+<p>다운링크 XP의 피드백 효과를 무시한 이상적 모델</p>
+</blockquote>
+<h3 id="가정">가정</h3>
+<ul>
+<li>다운링크 XP가 다음 전투에 미치는 영향 무시</li>
+<li>또는 <span class="math inline">\(w_X \approx 0\)</span></li>
+</ul>
+<h3 id="미분방정식">미분방정식</h3>
+<p><span class="math display">\[ \frac{dG}{dt} = k \quad (k = \text{상수}) \]</span></p>
+<h3 id="해">해</h3>
+<p><span class="math display">\[ G(t) = G_0 + kt \]</span></p>
+<h3 id="역전-소요-시간">역전 소요 시간</h3>
+<p><span class="math display">\[ t_{\text{역전}} = -\frac{G_0}{k} \]</span></p>
+<h3 id="특성">특성</h3>
+<ul>
+<li><strong>완전 선형</strong>: 격차가 격차를 가속하지 않음</li>
+<li><strong>역전 항상 가능</strong>: 유한 시간 내 따라잡기 가능</li>
+<li><strong>예측 가능</strong>: 게임 흐름이 계산 가능</li>
+</ul>
+<hr />
+<h2 id="모델-버전-2-약한-초선형-실제-모델">6. 모델 버전 2: 약한 초선형
+(실제 모델)</h2>
+<blockquote>
+<p>다운링크 XP가 다음 다운을 약간 쉽게 만드는 효과 포함</p>
+</blockquote>
+<h3 id="연립-미분방정식">연립 미분방정식</h3>
+<p><span class="math display">\[ \begin{cases} \displaystyle\frac{dG}{dt} = k + \mu \cdot X_{\text{downlink}}(t), \quad \mu \ll 1 \\[1em] \displaystyle\frac{dX_{\text{downlink}}}{dt} = h(G, t) \end{cases} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(k\)</span></td>
+<td>기본 격차 변화율</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\mu\)</span></td>
+<td>다운링크 피드백 계수 (작은 값)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(h(G, t)\)</span></td>
+<td>격차와 시간에 따른 다운링크 XP 획득 함수</td>
+</tr>
+</tbody>
+</table>
+<h3 id="특성-1">특성</h3>
+<ul>
+<li><strong>약한 초선형</strong>: 피드백 있지만 지수적 폭주 아님</li>
+<li><strong><span class="math inline">\(w_X\)</span>가 작으면 선형에
+근사</strong></li>
+<li><strong>캐리 판타지 일부 보존</strong>: 킬 많으면 약간 더
+강해짐</li>
+</ul>
+<h3 id="수치-해석">수치 해석</h3>
+<ul>
+<li>연립 상미분방정식으로 표현됨</li>
+<li>Runge-Kutta, Euler 등 수치 해석으로 실시간 계산 가능</li>
+<li>밸런싱 시뮬레이션으로 <span class="math inline">\(\mu\)</span>,
+<span class="math inline">\(k\)</span>, <span
+class="math inline">\(w_X\)</span> 최적값 탐색 가능</li>
+</ul>
+<h3 id="분기점bifurcation-point-불성립-논증">6.1 분기점(Bifurcation
+Point) 불성립 논증</h3>
+<blockquote>
+<p><strong>예상 질문:</strong> “<span
+class="math inline">\(\mu\)</span>가 임계값을 넘으면 지수적 폭주로
+전환되는 분기점이 존재합니까?”</p>
+</blockquote>
+<p><strong>답변: 분기점 논의 자체가 성립하지 않습니다.</strong></p>
+<p><span class="math inline">\(\mu\)</span>가 의미를 가지려면 XP →
+전투력 전환이 <strong>지속적으로</strong> 일어나야 합니다.</p>
+<p><span class="math display">\[ \mu \cdot X_{\text{downlink}} \xrightarrow{\text{효과}} w_L \cdot \Delta L \]</span></p>
+<p>그러나:</p>
+<p><span class="math display">\[ L(t) \leq L_{\max} = 5 \]</span></p>
+<p><strong>레벨 5 도달 시:</strong></p>
+<p><span class="math display">\[ \Delta L = 0 \implies \mu \cdot X_{\text{downlink}} \xrightarrow{\text{효과}} 0 \]</span></p>
+<table>
+<thead>
+<tr>
+<th>조건</th>
+<th><span class="math inline">\(\mu\)</span>의 효과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(L &lt; L_{\max}\)</span></td>
+<td>존재 (약한 피드백)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(L = L_{\max}\)</span></td>
+<td><strong>소멸</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\mu \text{가 아무리 커도, } L_{\max} \text{라는 경계 조건이 효과를 차단합니다.}} \]</span></p>
+<p><strong>결론:</strong></p>
+<p>분기점(Bifurcation)은 시스템이 <strong>무한히 발산할 수 있을
+때</strong> 의미가 있습니다. PDA는 <span
+class="math inline">\(L_{\max}\)</span>라는 <strong>흡수 경계(Absorbing
+Boundary)</strong>가 존재하므로, <span
+class="math inline">\(\mu\)</span>의 크기와 무관하게 지수적 폭주는
+구조적으로 불가능합니다.</p>
+<hr />
+<h2 id="경계-조건에-의한-상한-후반-게임-역학">7. 경계 조건에 의한 상한
+(후반 게임 역학)</h2>
+<h3 id="선형-증가의-한계">선형 증가의 한계</h3>
+<p>격차 함수 <span class="math inline">\(G(t)\)</span>는 선형으로
+증가하려 하지만:</p>
+<p><span class="math display">\[ G(t) = G_0 + kt \quad \text{(무한 증가?)} \]</span></p>
+<p><strong>아니다.</strong> 획득 가능한 자원에 상한이 존재한다:</p>
+<p><span class="math display">\[ N(t) \leq N_{\max}, \quad L(t) \leq L_{\max}, \quad C(t) \leq 1 \]</span></p>
+<h3 id="한-팀이-완전히-몰아붙였을-때">한 팀이 완전히 몰아붙였을 때</h3>
+<p>한 팀이 상대 영토를 전부 점령하면:</p>
+<p><span class="math display">\[ N_A(t) \to N_{\max}, \quad N_B(t) \to 0 \]</span></p>
+<p>이 상태에서: - <strong>더 이상 점령할 노드가 없음</strong> -
+<strong>노드 XP 획득 불가</strong> - <strong>다운링크 XP만
+남음</strong></p>
+<h3 id="xp-획득의-변화">XP 획득의 변화</h3>
+<p><span class="math display">\[ \frac{dX}{dt} = \frac{dX_{\text{node}}}{dt} + \frac{dX_{\text{downlink}}}{dt} \to \frac{dX_{\text{downlink}}}{dt} \]</span></p>
+<p>상대 영토를 전부 먹으면 <strong>노드 XP는 더 이상 획득할 수 없고,
+다운링크만 남는다.</strong></p>
+<h3 id="다운링크-xp의-이중-경계">다운링크 XP의 이중 경계</h3>
+<ol type="1">
+<li><strong>영토 경계</strong>: 노드 전부 점령 시 → 노드 XP 소멸</li>
+<li><strong>레벨 경계</strong>: <span class="math inline">\(L =
+L_{\max}\)</span> 시 → XP 효과 소멸</li>
+</ol>
+<p><span class="math display">\[ \boxed{\text{다운링크 XP는 &quot;유일한 무한 소스&quot;이지만, 두 경계 조건에 의해 효과가 소멸됩니다.}} \]</span></p>
+<h3 id="격차-변화율의-감소">격차 변화율의 감소</h3>
+<p><span class="math display">\[ \frac{dG}{dt} \to w_X \cdot \frac{dX_{\text{downlink}}}{dt} \]</span></p>
+<p><span class="math inline">\(w_X\)</span>가 작으면:</p>
+<p><span class="math display">\[ \frac{dG}{dt} \to 0 \quad \text{(상한 도달)} \]</span></p>
+<h3 id="수학적-명확화">수학적 명확화</h3>
+<p><span class="math display">\[ \boxed{\text{선형 증가(Linear Growth) + 경계 조건(Boundary Condition) = 상한 도달(Ceiling)}} \]</span></p>
+<p>이는 <strong>수렴(Convergence)</strong>이 아니라, <strong>구간별
+선형(Piecewise Linear)</strong>이되 경계에서 멈추는 구조다.</p>
+<h3 id="그래프">그래프</h3>
+<pre><code>G(t)
+  │
+  │                    ─────────────── 상한 (L = L_max, N = N_max)
+  │               ─────
+  │          ─────
+  │      ────
+  │   ───
+  │ ──
+  └──────────────────────────────────── t
+      초반      중반      후반
+      (노드+다운링크)   (다운링크만, 효과 감소)</code></pre>
+<h3 id="게임-흐름">게임 흐름</h3>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>상태</th>
+<th>XP 소스</th>
+<th>스노볼 속도</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>초반</td>
+<td>영토 경쟁</td>
+<td>노드 XP + 다운링크 XP</td>
+<td>높음</td>
+</tr>
+<tr>
+<td>중반</td>
+<td>밀어붙이기</td>
+<td>노드 비중 감소</td>
+<td>감소</td>
+</tr>
+<tr>
+<td>후반</td>
+<td>레벨 상한 도달</td>
+<td>다운링크만 (효과 소멸)</td>
+<td><span class="math inline">\(\approx 0\)</span></td>
+</tr>
+<tr>
+<td>결정전</td>
+<td>교착 트리거</td>
+<td>브레이커 스폰</td>
+<td>강제 분기</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="교착-상태-감지">8. 교착 상태 감지</h2>
+<h3 id="정의">정의</h3>
+<p><span class="math display">\[ \text{교착}(t, \tau) := \left| \frac{dG}{dt} \right| &lt; \epsilon \quad \forall \ t&#39; \in [t-\tau, \ t] \]</span></p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>의미</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(\tau\)</span></td>
+<td>관측 윈도우</td>
+<td>60초</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\epsilon\)</span></td>
+<td>임계값</td>
+<td>0.01</td>
+</tr>
+</tbody>
+</table>
+<h3 id="트리거-조건">트리거 조건</h3>
+<p><span class="math display">\[ \boxed{\text{교착}(t, \tau) = \texttt{true} \implies \text{오브젝트 스폰}} \]</span></p>
+<p><strong>해석:</strong> “최근 <span
+class="math inline">\(\tau\)</span>초 동안 양 팀의 격차가 벌어지지도,
+좁혀지지도 않았다”</p>
+<hr />
+<h2 id="오브젝트-스폰-규칙">9. 오브젝트 스폰 규칙</h2>
+<h3 id="핵심-원칙-그래디언트-기반-출현">9.0 핵심 원칙: 그래디언트 기반
+출현</h3>
+<p><span class="math display">\[ \boxed{\text{타임스탬프 기반 출현 ❌} \quad \text{그래디언트 기반 출현 ✓}} \]</span></p>
+<p>토이 솔져, 플라스틱 드래곤, 디멘션 브레이커는 <strong>“몇 분에
+나온다”가 아니라, “교착이 감지되면 나온다.”</strong></p>
+<table>
+<thead>
+<tr>
+<th>방식</th>
+<th>조건</th>
+<th>문제점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>타임스탬프</td>
+<td><span class="math inline">\(t = 10\text{min}\)</span></td>
+<td>게임 흐름 무시</td>
+</tr>
+<tr>
+<td><strong>그래디언트</strong></td>
+<td><span class="math inline">\(\|dG/dt\| &lt; \epsilon\)</span></td>
+<td><strong>상황 반응형</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="토이-솔져-플라스틱-드래곤">9.1 토이 솔져 &amp; 플라스틱
+드래곤</h3>
+<p><span class="math display">\[ \text{스폰 조건: } \text{교착}(t, \tau_1) = \texttt{true} \]</span></p>
+<ul>
+<li><strong>비대칭 전력 주입</strong> → 교착 타파</li>
+<li>고정 보상값 → 선형성 유지</li>
+</ul>
+<h3 id="디멘션-브레이커">9.2 디멘션 브레이커</h3>
+<p><span class="math display">\[ \text{스폰 조건: } \text{교착}(t, \tau_2) = \texttt{true}, \quad \tau_2 &gt; \tau_1 \]</span></p>
+<p><strong>버프 규칙:</strong> <span class="math display">\[ B_{\text{breaker}}(t) = \begin{cases} \texttt{활성} &amp; \text{보유자 생존 시} \\ \texttt{중립} &amp; \displaystyle\sum_{\text{팀원}} B_i = 0 \text{ (전원 다운 시)} \end{cases} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>속성</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>지속 시간</td>
+<td><strong>무제한</strong> (다운 시까지)</td>
+</tr>
+<tr>
+<td>리셋 조건</td>
+<td>팀 전원 버프 소실 시 중립 복귀</td>
+</tr>
+</tbody>
+</table>
+<h3 id="설계-변경-이력-및-인사이트">9.3 설계 변경 이력 및 인사이트</h3>
+<blockquote>
+<p><strong>원래 설계 (기획서 초안):</strong> - 디멘션 브레이커:
+타임스탬프 기반 출현 - 클레임 시 일시적 버프 후 소멸</p>
+<p><strong>문제점:</strong> - 엔드게임 템포가 죽음 - 결정전이 질질
+끌림</p>
+<p><strong>변경 후:</strong> - 그래디언트 기반 출현 - 버프 무제한 (다운
+시까지) - 팀 전원 다운 시 중립 복귀</p>
+</blockquote>
+<p><strong>결과:</strong></p>
+<p><span class="math display">\[ \boxed{\text{이 변경이 전장이라는 이름의 FSM을 닫힌 집합으로 만들었다. 게임은 결국 끝난다.}} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>상태</th>
+<th>전이 조건</th>
+<th>다음 상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>교전</td>
+<td>교착 감지</td>
+<td>오브젝트 스폰</td>
+</tr>
+<tr>
+<td>오브젝트 스폰</td>
+<td>클레임</td>
+<td>브레이커 보유</td>
+</tr>
+<tr>
+<td>브레이커 보유</td>
+<td>보유자 다운</td>
+<td>버프 이전 or 교전</td>
+</tr>
+<tr>
+<td>브레이커 보유</td>
+<td>팀 전멸</td>
+<td><strong>중립 복귀</strong></td>
+</tr>
+<tr>
+<td>중립 복귀</td>
+<td>재클레임</td>
+<td>브레이커 보유</td>
+</tr>
+</tbody>
+</table>
+<p><strong>모든 상태에서 다른 상태로의 전이가 정의됨 → 무한 루프/데드락
+없음 → FSM 닫힘</strong></p>
+<hr />
+<h2 id="선형성-유지-제약-조건">10. 선형성 유지 제약 조건</h2>
+<p>시스템이 선형(또는 약한 초선형)을 유지하려면:</p>
+<p><span class="math display">\[ \begin{aligned} &amp;\text{(C1)} \quad \frac{\partial}{\partial L}\left(\frac{dL}{dt}\right) = 0 \quad &amp;\text{레벨이 레벨 획득을 가속하지 않음} \\[1em] &amp;\text{(C2)} \quad \frac{\partial}{\partial N}\left(\frac{dN}{dt}\right) = 0 \quad &amp;\text{영토가 점령 속도를 가속하지 않음} \\[1em] &amp;\text{(C3)} \quad w_X \ll w_L \quad &amp;\text{다운링크 피드백 영향 최소화} \\[1em] &amp;\text{(C4)} \quad C(t) \leq C_{\max} &lt; 1 \quad &amp;\text{정보 우위에 상한선 존재} \\[1em] &amp;\text{(C5)} \quad L(t) \leq L_{\max} \quad &amp;\text{레벨 상한이 XP 효과 차단 (흡수 경계)} \end{aligned} \]</span></p>
+<hr />
+<h2 id="시스템-비교">11. 시스템 비교</h2>
+<table>
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 23%" />
+<col style="width: 30%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr>
+<th>속성</th>
+<th>기존 MOBA</th>
+<th>PDA (버전 1)</th>
+<th>PDA (버전 2)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>스노볼 유형</td>
+<td>지수적</td>
+<td>순수 선형</td>
+<td>약한 초선형</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\frac{dG}{dt}\)</span></td>
+<td><span class="math inline">\(= \lambda G\)</span></td>
+<td><span class="math inline">\(= k\)</span></td>
+<td><span class="math inline">\(= k + \mu
+X_{\text{downlink}}\)</span></td>
+</tr>
+<tr>
+<td>무한 자원</td>
+<td>전부 (골드, XP, 아이템)</td>
+<td>없음</td>
+<td><strong>획득만 무한, 효과는 유한</strong></td>
+</tr>
+<tr>
+<td>경계 조건</td>
+<td>없음 (무한 발산)</td>
+<td>있음 (<span class="math inline">\(N_{\max}\)</span>)</td>
+<td><strong>이중 경계 (<span class="math inline">\(N_{\max}\)</span>,
+<span class="math inline">\(L_{\max}\)</span>)</strong></td>
+</tr>
+<tr>
+<td>분기점</td>
+<td>존재 가능</td>
+<td>없음</td>
+<td><strong>구조적으로 불가능</strong></td>
+</tr>
+<tr>
+<td>역전 가능성</td>
+<td>거의 불가능</td>
+<td>항상 가능</td>
+<td>가능</td>
+</tr>
+<tr>
+<td>후반 교착</td>
+<td>강제 이벤트 필요</td>
+<td>자연 발생 안 함</td>
+<td><strong>자연 발생</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="요약">12. 요약</h2>
+<p><span class="math display">\[ \boxed{\text{PDA는 의도적으로 단일 무한 자원(다운링크 XP)만 허용하여,}} \]</span> <span class="math display">\[ \boxed{\text{완전한 선형과 기존 MOBA의 지수적 폭주 사이의 균형점을 찾는다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{그러나 &quot;무한&quot;은 획득 기회일 뿐, 효과는 레벨 상한(}L_{\max}\text{)에서 소멸됩니다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{따라서 피드백 계수 } \mu \text{의 분기점 논의는 구조적으로 성립하지 않는다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{상한 도달 → 교착 감지 → 시스템 개입 → 결정전의 흐름이 구조적으로 보장됩니다.}} \]</span></p>
+<hr />
+<blockquote>
+<p><em>교착 상태가 구조적으로 발생할 수 있기 때문에, 이를 타파하기 위한
+조정항으로 오브젝트들(토이 솔져, 플라스틱 드래곤, 디멘션 브레이커)이
+존재합니다.</em></p>
+<p><em>본 문서의 모델은 선형으로 단순화되어 있습니다. 실제로는 앞선 팀이
+다음 자원을 획득하기 더 쉬운 것은 사실이며, 채널링 성공/실패 확률, 팀 간
+실력 차이 등 더 복잡한 요소가 개입합니다. 다만 PDA는 모든 점령에
+채널링을 요구하므로, 열세 팀에게 개입 기회가 구조적으로
+보장됩니다.</em></p>
+<p><em>본 문서의 모든 방정식, 파라미터, 수치는 예시에 불과합니다. 더
+엄밀한 수학적 전개는 전문가분들의 검토와 보완을 기대합니다.</em></p>
+</blockquote>
+<h1 id="pda-채널링-시간-도출-모델">PDA 채널링 시간 도출 모델</h1>
+<h2 id="반응-확산-방정식과-란체스터-법칙-기반">반응-확산 방정식과
+란체스터 법칙 기반</h2>
+<hr />
+<h2 id="개요">1. 개요</h2>
+<p>PDA에서 채널링 시간은 “감”으로 정하는 상수가 아니라, <strong>시스템
+변수들의 함수로 도출되는 해(Solution)</strong>입니다.</p>
+<p>본 문서는 다음 질문에 답한다:</p>
+<blockquote>
+<p>“3v4 교전 리스크, 노드 가치, 맵 구조를 고려했을 때, 균형 잡힌 채널링
+시간은 몇 초인가?”</p>
+</blockquote>
+<hr />
+<h2 id="변수-정의">2. 변수 정의</h2>
+<h3 id="맵챔피언-변수-고정">2.1 맵/챔피언 변수 (고정)</h3>
+<table>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+<th>단위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(d\)</span></td>
+<td>노드 간 평균 거리</td>
+<td>m</td>
+</tr>
+<tr>
+<td><span class="math inline">\(v\)</span></td>
+<td>챔피언 평균 이동속도</td>
+<td>m/s</td>
+</tr>
+<tr>
+<td><span class="math inline">\(r\)</span></td>
+<td>챔피언 평균 스킬 사거리</td>
+<td>m</td>
+</tr>
+<tr>
+<td><span class="math inline">\(d_{spawn}\)</span></td>
+<td>리스폰 지점 → 노드 평균 거리</td>
+<td>m</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\bar{a}\)</span></td>
+<td>챔피언 평균 공격력</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>저자 주 (방어력에 대하여):</strong> 방어력(Resistance)에
+대해선 당장 답을 찾지 못했습니다. 이 문서를 보는 여러분이라면 찾을 거라
+믿습니다. 우선은 제외하였습니다.</p>
+</blockquote>
+<blockquote>
+<p><strong>주: 스킬 계수와 대미지 공식의 추상화</strong></p>
+<p>본 문서의 변수들은 개별 스킬을 추상화한 값이다:</p>
+<table>
+<colgroup>
+<col style="width: 28%" />
+<col style="width: 71%" />
+</colgroup>
+<thead>
+<tr>
+<th>변수</th>
+<th>실제 포함 요소</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(v\)</span> (이동속도)</td>
+<td>기본 이동속도 + <strong>무빙기(대시, 블링크, 가속 등)</strong> 포함
+평균</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\bar{a}\)</span> (공격력)</td>
+<td>기본 공격력 + <strong>스킬 계수, 스킬 대미지</strong> 포함 평균</td>
+</tr>
+<tr>
+<td><span class="math inline">\(r\)</span> (사거리)</td>
+<td>기본 사거리 + <strong>스킬 사거리</strong> 포함 평균</td>
+</tr>
+</tbody>
+</table>
+<p>즉, 개별 챔피언의 스킬셋 전체를 단일 수치로 압축한 것입니다. 실제
+밸런싱 시에는 이 추상화된 값을 기준으로 개별 스킬 계수를 역산합니다.</p>
+</blockquote>
+<h3 id="게임-상태-변수">2.2 게임 상태 변수</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+<th>범위</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(A\)</span></td>
+<td>아군 교전 인원</td>
+<td><span class="math inline">\([1, 4]\)</span></td>
+<td>전투력 계산 (플레이어 참고용)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(B\)</span></td>
+<td>적군 교전 인원</td>
+<td><span class="math inline">\([1, 4]\)</span></td>
+<td>전투력 계산 (플레이어 참고용)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(L\)</span></td>
+<td>팀 레벨</td>
+<td><span class="math inline">\([1, 5]\)</span></td>
+<td>보호막 결정</td>
+</tr>
+<tr>
+<td><span class="math inline">\(S(L)\)</span></td>
+<td>채널링 보호막 (레벨 비례)</td>
+<td><span class="math inline">\(\mathbb{R}^+\)</span></td>
+<td>채널링 가능 여부</td>
+</tr>
+<tr>
+<td><span class="math inline">\(t_{respawn}\)</span></td>
+<td>리스폰 대기 시간</td>
+<td>레벨 기반</td>
+<td>채널링 윈도우</td>
+</tr>
+<tr>
+<td><span class="math inline">\(w_i\)</span></td>
+<td>노드 <span class="math inline">\(i\)</span>의 밸류 (위치/상태
+포함)</td>
+<td><span class="math inline">\(\mathbb{R}^+\)</span></td>
+<td><strong>채널링 시간 결정</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="도출-변수">2.3 도출 변수</h3>
+<table>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(T^*\)</span></td>
+<td><strong>균형 채널링 시간 (목표 해)</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="적-도착-시간-모델">3. 적 도착 시간 모델</h2>
+<h3 id="기본-도착-시간">3.1 기본 도착 시간</h3>
+<p>적이 인접 노드에서 방해하러 오는 시간:</p>
+<p><span class="math display">\[ t_{arrive} = \frac{d - r}{v} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>항</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(d\)</span></td>
+<td>노드 간 거리</td>
+</tr>
+<tr>
+<td><span class="math inline">\(r\)</span></td>
+<td>스킬 사거리 (도착 전에 끊을 수 있음)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(v\)</span></td>
+<td>이동속도</td>
+</tr>
+</tbody>
+</table>
+<h3 id="확률적-도착-모델">3.2 확률적 도착 모델</h3>
+<p>적이 시간 <span class="math inline">\(t\)</span> 내에 도착할 확률
+(지수 분포 가정):</p>
+<p><span class="math display">\[ P(t_{arrive} &lt; t) = 1 - e^{-\lambda t} \]</span></p>
+<p>여기서 도착률 <span class="math inline">\(\lambda\)</span>:</p>
+<p><span class="math display">\[ \lambda = \frac{v}{d} \cdot n_{nearby} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>항</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(v/d\)</span></td>
+<td>이동속도/거리 비율</td>
+</tr>
+<tr>
+<td><span class="math inline">\(n_{nearby}\)</span></td>
+<td>인접 노드의 적 수</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="란체스터-제곱-법칙-수정">4. 란체스터 제곱 법칙 (수정)</h2>
+<h3 id="기본-공식">4.1 기본 공식</h3>
+<p>전투력은 인원수와 공격력/방어력의 함수:</p>
+<p><span class="math display">\[ \text{전투력} = n^2 \times \frac{a}{h} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>항</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(n\)</span></td>
+<td>인원수</td>
+</tr>
+<tr>
+<td><span class="math inline">\(a\)</span></td>
+<td>공격력</td>
+</tr>
+<tr>
+<td><span class="math inline">\(h\)</span></td>
+<td>방어력(체력)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="채널링-보호막">4.2 채널링 보호막</h3>
+<p>채널링 중인 챔피언에게 <strong>레벨 비례 보호막</strong> 부여:</p>
+<p><span class="math display">\[ S_{mean} = S(L) = s_0 + s_1 \cdot L \]</span></p>
+<p><span class="math display">\[ S_{champ} = S_{mean} \times k_{champ} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(S_{mean}\)</span></td>
+<td>평균 보호막 (레벨 기반)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(s_0\)</span></td>
+<td>기본 보호막</td>
+</tr>
+<tr>
+<td><span class="math inline">\(s_1\)</span></td>
+<td>레벨당 보호막 증가량</td>
+</tr>
+<tr>
+<td><span class="math inline">\(L\)</span></td>
+<td>팀 레벨</td>
+</tr>
+<tr>
+<td><span class="math inline">\(S_{champ}\)</span></td>
+<td>챔피언별 보호막</td>
+</tr>
+<tr>
+<td><span class="math inline">\(k_{champ}\)</span></td>
+<td>챔피언별 보호막 계수 (이동속도에 반비례)</td>
+</tr>
+</tbody>
+</table>
+<h4>왜 공격력이 아니라 보호막인가?</h4>
+<p><strong>해킹 중에는 공격을 하지 않습니다.</strong> 따라서 이동속도가 빠른 챔피언의 공격력을 깎아봤자 해킹 성공률에는 영향이 없습니다.</p>
+<ul>
+<li>빠른 챔피언: 해킹 시도 기회(Frequency)가 많음</li>
+<li>밸런싱: 기댓값을 맞추려면 성공 확률(Probability)을 낮춰야 함</li>
+<li>방법: 보호막(S)을 줄여서, 스치기만 해도 해킹이 취소되게 함</li>
+</ul>
+<p><strong>결론:</strong> 공격력을 깎는 건 '전투' 밸런스지만, 보호막을 깎는 건 '승리' 밸런스입니다.</p>
+<h4>챔피언별 보호막 계수 예시</h4>
+<table>
+<thead>
+<tr>
+<th>챔피언</th>
+<th>이동속도</th>
+<th>\(k_{champ}\)</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>밤 (Bam)</td>
+<td>Fast</td>
+<td>0.6</td>
+<td>물몸 — 스치면 끊김</td>
+</tr>
+<tr>
+<td>별 (Byul)</td>
+<td>Normal</td>
+<td>1.0</td>
+<td>기준점</td>
+</tr>
+<tr>
+<td>산 (San)</td>
+<td>Slow</td>
+<td>1.4</td>
+<td>철옹성 — 짤짤이 무시</td>
+</tr>
+</tbody>
+</table>
+<p><strong>자동 밸런싱:</strong> 신규 챔피언의 이동속도만 입력하면, 보호막 계수가 자동으로 도출됩니다.</p>
+<h4>공격력(DPS)의 의미</h4>
+<p>공격력은 "체력을 깎는 힘"이 아니라, <strong>"상대의 해킹 시도를 무산시키는 저지력(Stopping Power)"</strong>입니다.</p>
+<p><span class="math display">\[ t_{shield} = \frac{S_{champ}}{DPS} \]</span></p>
+<p><strong>채널링 성공 조건:</strong> <span class="math inline">\(T^* < t_{shield}\)</span> (보호막이 채널링 완료까지 버텨야 함)</p>
+<p><strong>중요:</strong> 보호막은 <strong>레벨에만 비례</strong>. 노드
+가치와 무관합니다.</p>
+<h3 id="채널링-취소-조건">4.3 채널링 취소 조건</h3>
+<p><span class="math display">\[ \text{채널링 취소} \iff \begin{cases} S(L) \leq 0 &amp; \text{(보호막 파괴)} \\ \text{CC hit} = \texttt{true} &amp; \text{(CC기 적중)} \end{cases} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>조건</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>보호막 깨짐</td>
+<td>채널링 즉시 취소</td>
+</tr>
+<tr>
+<td>CC기 적중</td>
+<td>채널링 즉시 취소</td>
+</tr>
+<tr>
+<td>일반 공격</td>
+<td>보호막 깎임, 채널링 유지</td>
+</tr>
+</tbody>
+</table>
+<h3 id="전투-구조-채널링-중">4.4 전투 구조 (채널링 중)</h3>
+<pre><code>[적 B명] ←→ [아군 전투원 (A-1)명] ←― [채널러 1명 (후방)]
+                    ↑                        ↑
+               전선에서 막아줌          보호막으로 버팀</code></pre>
+<p><strong>적의 선택지:</strong> 1. 전선 교전 → <span
+class="math inline">\((A-1)\)</span> vs <span
+class="math inline">\(B\)</span> 2. 채널러 암살 시도 → 보호막 깨거나
+CC로 끊기</p>
+<h3 id="유효-전투력-비">4.5 유효 전투력 비</h3>
+<p>전선 교전 시:</p>
+<p><span class="math display">\[ \rho = \frac{(A-1)^2}{B^2} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>상황</th>
+<th>전투원</th>
+<th><span class="math inline">\(\rho\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4v4 정상</td>
+<td>4 vs 4</td>
+<td>1.00</td>
+</tr>
+<tr>
+<td>채널링 (3v4)</td>
+<td>3 vs 4</td>
+<td>0.56</td>
+</tr>
+<tr>
+<td>채널링 (2v3)</td>
+<td>2 vs 3</td>
+<td>0.44</td>
+</tr>
+<tr>
+<td>채널링 (1v2)</td>
+<td>1 vs 2</td>
+<td>0.25</td>
+</tr>
+</tbody>
+</table>
+<p><strong>중요:</strong> 이 전투력 비는 <strong>플레이어의 리스크
+판단용</strong>입니다. <span class="math display">\[ \boxed{\text{채널링 시간 } T^* \text{는 } \rho \text{에 영향받지 않는다 (고정값).}} \]</span></p>
+<p>“지금 채널링해도 될까?”는 플레이어가 <span
+class="math inline">\(\rho\)</span>를 보고 스스로 판단합니다.</p>
+<h3 id="보호막-생존-시간">4.6 보호막 생존 시간</h3>
+<p>적이 채널러를 공격할 때 보호막이 버티는 시간:</p>
+<p><span class="math display">\[ t_{shield} = \frac{S(L)}{n_{attacker} \times \bar{a}} \]</span></p>
+<p><strong>채널링 성공 조건:</strong> <span class="math display">\[ T &lt; t_{shield} \quad \text{(보호막이 채널링 완료까지 버텨야 함)} \]</span></p>
+<p>또는 아군이 적 암살자를 저지해야 합니다.</p>
+<hr />
+<h2 id="채널링-윈도우-팀파이트-후">5. 채널링 윈도우 (팀파이트 후)</h2>
+<h3 id="안전-윈도우">5.1 안전 윈도우</h3>
+<p>적 전멸 후 채널링 가능 시간:</p>
+<p><span class="math display">\[ t_{window} = t_{respawn} + \frac{d_{spawn}}{v} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>항</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(t_{respawn}\)</span></td>
+<td>적 리스폰 대기 시간</td>
+</tr>
+<tr>
+<td><span class="math inline">\(d_{spawn}/v\)</span></td>
+<td>리스폰 → 노드 이동 시간</td>
+</tr>
+</tbody>
+</table>
+<h3 id="안전-채널링-조건">5.2 안전 채널링 조건</h3>
+<p><span class="math display">\[ T &lt; t_{window} \implies \text{방해 없이 채널링 완료} \]</span></p>
+<hr />
+<h2 id="균형-채널링-시간-도출">6. 균형 채널링 시간 도출</h2>
+<h3 id="핵심-원칙">6.1 핵심 원칙</h3>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>비례 대상</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>보호막 <span class="math inline">\(S(L)\)</span></td>
+<td><strong>레벨만</strong></td>
+<td>채널링 “가능 여부” (방어)</td>
+</tr>
+<tr>
+<td>채널링 시간 <span class="math inline">\(T\)</span></td>
+<td><strong>노드 가치</strong></td>
+<td>리스크 (높을수록 오래 걸림)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="최종-공식">6.2 최종 공식</h3>
+<p><span class="math display">\[ T^* = \alpha \cdot t_{arrive} + \gamma \cdot w_i \]</span></p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 37%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr>
+<th>항</th>
+<th>의미</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(\alpha \cdot t_{arrive}\)</span></td>
+<td>적 도착 시간 반영</td>
+<td><strong>맵 구조에서 도출 (고정)</strong></td>
+</tr>
+<tr>
+<td><span class="math inline">\(\gamma \cdot w_i\)</span></td>
+<td>노드 가치 반영</td>
+<td><strong>노드별 고정값</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math inline">\(\alpha, \gamma &gt; 0\)</span>: 튜닝
+계수</p>
+<h3 id="보호막-제약-조건">6.3 보호막 제약 조건</h3>
+<p>채널링이 성공하려면 보호막이 버텨야 함:</p>
+<p><span class="math display">\[ T^* &lt; t_{shield} = \frac{S(L)}{n_{attacker} \times \bar{a}} \]</span></p>
+<p>또는 아군이 채널러를 보호해야 합니다.</p>
+<h3 id="해석">6.4 해석</h3>
+<p><strong><span class="math inline">\(t_{arrive}\)</span> 항:</strong>
+- 적이 멀리 있는 노드 → 채널링 길어도 됨 - 적이 가까운 노드 → 채널링
+짧아야 함</p>
+<p><strong><span class="math inline">\(w_i\)</span> 항:</strong> - 3차
+앵커 (고가치) → 리스크 높여야 하므로 <strong>T 증가</strong> - 1차 앵커
+(저가치) → 쉽게 먹을 수 있어야 하므로 <strong>T 감소</strong></p>
+<h3 id="중요-채널링-시간은-고정값">6.5 중요: 채널링 시간은 고정값</h3>
+<p><span class="math display">\[ \boxed{\text{채널링 시간은 교전 상황(ρ)에 따라 변하지 않는다.}} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>변수</th>
+<th>채널링 시간에 영향</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>맵 구조 (<span class="math inline">\(t_{arrive}\)</span>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>노드 가치 (<span class="math inline">\(w_i\)</span>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>교전 인원 (<span class="math inline">\(\rho\)</span>)</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>레벨</td>
+<td>✗ (보호막에만 영향)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>리스크 판단은 플레이어의 몫.</strong> 시스템이 동적으로
+조절하지 않습니다.</p>
+<h3 id="두-시스템의-분리">6.6 두 시스템의 분리</h3>
+<pre><code>┌─────────────────────────────────────────────┐
+│              채널링 시스템                    │
+├─────────────────────┬───────────────────────┤
+│     보호막 S(L)      │    채널링 시간 T*      │
+├─────────────────────┼───────────────────────┤
+│ - 레벨 비례          │ - 노드 가치 비례       │
+│ - 깨지면 취소        │ - 맵 구조 반영         │
+│ - CC 맞으면 취소     │ - 교전 상황 무관 (고정)│
+├─────────────────────┼───────────────────────┤
+│ &quot;버틸 수 있는가?&quot;    │ &quot;얼마나 걸리는가?&quot;     │
+└─────────────────────┴───────────────────────┘</code></pre>
+<hr />
+<h2 id="제약-조건">7. 제약 조건</h2>
+<h3 id="상한하한">7.1 상한/하한</h3>
+<p><span class="math display">\[ T_{min} \leq T^* \leq T_{max} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>제약</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(T_{min}\)</span></td>
+<td>너무 짧으면 리스크 없음 (최소 긴장감)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(T_{max}\)</span></td>
+<td>너무 길면 게임 템포 저하</td>
+</tr>
+</tbody>
+</table>
+<h3 id="방해-가능성-보장">7.2 방해 가능성 보장</h3>
+<p>채널링이 의미 있으려면 적이 방해할 기회가 있어야 함:</p>
+<p><span class="math display">\[ T^* &gt; t_{arrive} - \epsilon \]</span></p>
+<p><span class="math inline">\(\epsilon\)</span>: 여유 시간 (반응 시간
+고려)</p>
+<h3 id="팀파-후-보상">7.3 팀파 후 보상</h3>
+<p>팀파이트 승리의 보상으로 안전 채널링 보장:</p>
+<p><span class="math display">\[ T^* &lt; t_{window} \]</span></p>
+<hr />
+<h2 id="노드별-채널링-시간">8. 노드별 채널링 시간</h2>
+<h3 id="노드-밸류-정의">8.1 노드 밸류 정의</h3>
+<p><span class="math display">\[ w_i = w_{tier} \times w_{position} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>티어</th>
+<th><span class="math inline">\(w_{tier}\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1차 앵커</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2차 앵커</td>
+<td>2</td>
+</tr>
+<tr>
+<td>3차 앵커</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>위치</th>
+<th><span class="math inline">\(w_{position}\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>외곽</td>
+<td>1.0</td>
+</tr>
+<tr>
+<td>중앙</td>
+<td>1.2</td>
+</tr>
+<tr>
+<td>적 진영 깊숙이</td>
+<td>1.5</td>
+</tr>
+</tbody>
+</table>
+<h3 id="예시-계산">8.2 예시 계산</h3>
+<p>가정: - <span class="math inline">\(d = 1000m\)</span>, <span
+class="math inline">\(v = 400m/s\)</span>, <span class="math inline">\(r
+= 200m\)</span> - <span class="math inline">\(t_{arrive} = (1000 - 200)
+/ 400 = 2.0s\)</span> - 2차 앵커 중앙: <span class="math inline">\(w_i =
+2 \times 1.2 = 2.4\)</span></p>
+<p>튜닝 계수 (예시): - <span class="math inline">\(\alpha =
+0.8\)</span>, <span class="math inline">\(\gamma = 0.5\)</span></p>
+<p><strong>채널링 시간 계산:</strong> <span class="math display">\[ T^* = 0.8 \times 2.0 + 0.5 \times 2.4 \]</span> <span class="math display">\[ T^* = 1.6 + 1.2 = 2.8s \]</span></p>
+<p><strong>보호막 검증 (레벨 3 기준):</strong> <span
+class="math display">\[
+S(3) = s_0 + s_1 \times 3
+\]</span></p>
+<p>보호막이 2.8초 동안 버텨야 채널링 성공입니다.</p>
+<p><strong>결과: 2차 앵커 중앙 = 약 2.8초 채널링 (고정값)</strong></p>
+<table>
+<thead>
+<tr>
+<th>노드</th>
+<th><span class="math inline">\(w_i\)</span></th>
+<th><span class="math inline">\(T^*\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1차 앵커 외곽</td>
+<td>1.0</td>
+<td>2.1초</td>
+</tr>
+<tr>
+<td>2차 앵커 중앙</td>
+<td>2.4</td>
+<td>2.8초</td>
+</tr>
+<tr>
+<td>3차 앵커 적진</td>
+<td>7.5</td>
+<td>5.4초</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="시스템-다이어그램">9. 시스템 다이어그램</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│                           입력 변수                                   │
+├──────────────┬──────────────┬──────────────┬───────────────────────┤
+│   맵 구조     │  챔피언 스펙   │    레벨      │       노드 정보        │
+│  d, d_spawn  │  v, r, ā, h̄  │     L        │         w_i          │
+└──────┬───────┴──────┬───────┴──────┬───────┴───────────┬───────────┘
+       │              │              │                   │
+       ▼              ▼              ▼                   ▼
+  ┌─────────┐   ┌──────────┐   ┌──────────┐        ┌─────────┐
+  │t_arrive │   │ t_window │   │   S(L)   │        │   w_i   │
+  │ (d-r)/v │   │ t_resp+  │   │ 보호막    │        │  밸류   │
+  │ (고정)   │   │d_spawn/v │   │ (레벨비례)│        │  (고정) │
+  └────┬────┘   └────┬─────┘   └────┬─────┘        └────┬────┘
+       │             │              │                   │
+       │             │              ▼                   │
+       │             │     ┌──────────────┐            │
+       │             │     │  채널링 취소   │            │
+       │             │     │  조건 검증    │            │
+       │             │     │ S≤0 or CC?  │            │
+       │             │     └──────────────┘            │
+       │             │                                 │
+       └─────────────┴────────────┬────────────────────┘
+                                  │
+                                  ▼
+                      ┌───────────────────────┐
+                      │      균형 방정식        │
+                      │                       │
+                      │   T* = αt + γw        │
+                      │      (고정값)          │
+                      └───────────┬───────────┘
+                                  │
+                                  ▼
+                      ┌───────────────────────┐
+                      │    제약 조건 적용       │
+                      │                       │
+                      │  T_min ≤ T* ≤ T_max   │
+                      │  T* &lt; t_window        │
+                      │  T* &lt; t_shield        │
+                      └───────────┬───────────┘
+                                  │
+                                  ▼
+                      ┌───────────────────────┐
+                      │                       │
+                      │   채널링 시간 T* 출력   │
+                      │     (노드별 고정값)     │
+                      └───────────────────────┘</code></pre>
+<hr />
+<h2 id="요약-1">10. 요약</h2>
+<h3 id="채널링-시간-고정값">채널링 시간 (고정값)</h3>
+<p><span class="math display">\[ \boxed{T^* = \alpha \cdot t_{arrive} + \gamma \cdot w_i} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>입력</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(t_{arrive}\)</span></td>
+<td>맵 구조에서 도출 (고정)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(w_i\)</span></td>
+<td>노드별 가치 (고정)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="보호막-레벨-비례">보호막 (레벨 비례)</h3>
+<p><span class="math display">\[ \boxed{S(L) = s_0 + s_1 \cdot L} \]</span></p>
+<h3 id="채널링-취소-조건-1">채널링 취소 조건</h3>
+<p><span class="math display">\[ \boxed{\text{취소} \iff S(L) \leq 0 \text{ (보호막 파괴)} \lor \text{CC 적중}} \]</span></p>
+<h3 id="핵심-설계-원칙">핵심 설계 원칙</h3>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>결정 요인</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>채널링 시간 <span class="math inline">\(T^*\)</span></td>
+<td>맵 구조 + 노드 가치</td>
+<td><strong>고정값</strong></td>
+</tr>
+<tr>
+<td>보호막 <span class="math inline">\(S(L)\)</span></td>
+<td>레벨</td>
+<td><strong>동적</strong></td>
+</tr>
+<tr>
+<td>교전 상황 <span class="math inline">\(\rho\)</span></td>
+<td>-</td>
+<td><strong>채널링 시간에 영향 없음</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{채널링 시간은 노드별 고정값입니다. 교전 상황(ρ)에 따라 변하지 않는다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{리스크 판단(언제 채널링할지)은 시스템이 아닌 플레이어의 몫입니다.}} \]</span></p>
+<hr />
+<h2 id="다중-채널링-시스템-확장">11. 다중 채널링 시스템 (확장)</h2>
+<h3 id="개요-1">11.1 개요</h3>
+<p>동일 노드에 <strong>n명이 동시 채널링</strong>하여 점령 시간을
+단축하는 올인 전략입니다.</p>
+<p><span class="math display">\[ \boxed{\text{리스크} \uparrow \implies \text{보상(시간 단축)} \uparrow} \]</span></p>
+<h3 id="전투력-비-변화">11.2 전투력 비 변화</h3>
+<table>
+<thead>
+<tr>
+<th>채널링 인원 <span class="math inline">\(n\)</span></th>
+<th>전투 구도</th>
+<th><span class="math inline">\(\rho_n\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>3v4</td>
+<td>0.56</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2v4</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1v4</td>
+<td>0.06</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \rho_n = \frac{(A-n)^2}{B^2} \]</span></p>
+<h3 id="채널링-시간-공식">11.3 채널링 시간 공식</h3>
+<p><span class="math display">\[ T^*_n = T^* \cdot \frac{\rho_n}{\rho_1} = T^* \cdot \frac{(A-n)^2}{(A-1)^2} \]</span></p>
+<table>
+<thead>
+<tr>
+<th><span class="math inline">\(n\)</span></th>
+<th>시간 비율</th>
+<th>예시 (<span class="math inline">\(T^* = 3s\)</span>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>100%</td>
+<td>3.0초</td>
+</tr>
+<tr>
+<td>2</td>
+<td>~45%</td>
+<td>~1.35초</td>
+</tr>
+<tr>
+<td>3</td>
+<td>~11%</td>
+<td>~0.33초</td>
+</tr>
+</tbody>
+</table>
+<h3 id="보호막-공유-방식">11.4 보호막: 공유 방식</h3>
+<p><span class="math display">\[ S_{shared}(L) = S(L) \quad \text{(1개를 n명이 공유)} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>방식</th>
+<th>효과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>공유 보호막</td>
+<td>n명이 나눠서 받음 → 더 빨리 깨짐</td>
+</tr>
+</tbody>
+</table>
+<p><strong>채널링 취소 조건:</strong> <span class="math display">\[ \text{취소} \iff S_{shared}(L) \leq 0 \text{ (공유 보호막 파괴)} \lor \text{CC 적중 (아무나 1명)} \]</span></p>
+<h3 id="리스크-리워드-정리">11.5 리스크-리워드 정리</h3>
+<table>
+<thead>
+<tr>
+<th><span class="math inline">\(n\)</span></th>
+<th>전투 구도</th>
+<th>시간</th>
+<th>보호막</th>
+<th>리스크</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>3v4</td>
+<td>100%</td>
+<td>혼자 버팀</td>
+<td>기준</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2v4</td>
+<td>~45%</td>
+<td>공유 (빨리 깨짐)</td>
+<td>높음</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1v4</td>
+<td>~11%</td>
+<td>공유 (더 빨리 깨짐)</td>
+<td><strong>극한</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="설계-의도">11.6 설계 의도</h3>
+<p><span class="math display">\[ \boxed{\text{다중 채널링 = 올인 전략. 성공 시 빠른 점령, 실패 시 팀파 패배.}} \]</span></p>
+<p><strong>플레이어 체감:</strong> &gt; “2명이면 빠르다. 근데
+위험하다.”</p>
+<p>정확한 수치(45%)는 몰라도 됩니다. <strong>리스크-리워드 직관</strong>만
+성립하면 됩니다.</p>
+<hr />
+<h2 id="신규-챔피언-밸런싱-예측">13. 신규 챔피언 밸런싱 예측</h2>
+<h3 id="핵심-인사이트">13.1 핵심 인사이트</h3>
+<p>PDA의 모든 수치는 <strong>서로 방정식의 해가 맞물리면서 도출됩니다:</strong></p>
+<p><span class="math display">\[ v \rightarrow k_{champ} \rightarrow S_{champ} \rightarrow DPS_{required} \]</span></p>
+<ul>
+<li>이동속도(<span class="math inline">\(v\)</span>)가 보호막 계수(<span class="math inline">\(k_{champ}\)</span>)를 결정하고,</li>
+<li>보호막(<span class="math inline">\(S\)</span>)이 공격력(<span class="math inline">\(DPS\)</span>)의 기준을 결정합니다.</li>
+</ul>
+<p>이 톱니바퀴 구조 덕분에, 어느 하나만 툭 튀어나온 OP(Over Powered)가 나올 수 없습니다.</p>
+<p>균형 채널링 시간 <span class="math inline">\(T^*\)</span>는
+<strong>평균 챔피언 능력치</strong>를 기반으로 도출됩니다:</p>
+<p><span class="math display">\[ T^* = f(\bar{v}, \bar{r}, d, w_i) \]</span></p>
+<p>따라서 신규 챔피언의 개별 능력치가 평균에서 얼마나 벗어나는지
+계산하면, <strong>출시 전에 밸런스 계수를 자동으로 도출</strong>할 수 있습니다.</p>
+<h3 id="신규-챔피언-계수-도출">13.2 신규 챔피언 계수 도출</h3>
+<p>신규 챔피언의 이동속도 <span class="math inline">\(v_{new}\)</span>만 입력하면, 나머지는 자동으로 도출됩니다:</p>
+<p><span class="math display">\[ k_{champ} = \frac{\bar{v}}{v_{new}} \]</span></p>
+<p><span class="math display">\[ S_{champ} = S_{mean} \times k_{champ} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>입력</th>
+<th>자동 도출</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(v_{new} &gt; \bar{v}\)</span> (빠름)</td>
+<td><span class="math inline">\(k_{champ} &lt; 1\)</span> → 보호막 감소</td>
+</tr>
+<tr>
+<td><span class="math inline">\(v_{new} = \bar{v}\)</span> (평균)</td>
+<td><span class="math inline">\(k_{champ} = 1\)</span> → 기준점</td>
+</tr>
+<tr>
+<td><span class="math inline">\(v_{new} &lt; \bar{v}\)</span> (느림)</td>
+<td><span class="math inline">\(k_{champ} &gt; 1\)</span> → 보호막 증가</td>
+</tr>
+</tbody>
+</table>
+<p><strong>기획자가 할 일:</strong> 이동속도만 정하면 끝. 보호막은 방정식이 알아서 맞춥니다.</p>
+<h3 id="추상화-개별-스킬-역산">13.3 추상화 → 개별 스킬 역산</h3>
+<p>균형 방정식에서 도출된 <strong>추상화된 평균값</strong>을 기준으로,
+개별 스킬 계수를 역산한다:</p>
+<p><span class="math display">\[ \bar{v}_{new} = v_{base} + \sum_{i} w_i \cdot v_{skill_i} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>작업</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>균형 방정식에서 <span class="math inline">\(\bar{v}_{new}\)</span>
+목표치 도출</td>
+</tr>
+<tr>
+<td>2</td>
+<td>기본 이동속도 <span class="math inline">\(v_{base}\)</span>
+설정</td>
+</tr>
+<tr>
+<td>3</td>
+<td>나머지를 무빙기 스킬들에 배분</td>
+</tr>
+</tbody>
+</table>
+<p><strong>예시:</strong> - 목표 <span
+class="math inline">\(\bar{v}_{new} = 420\)</span> - 기본 이동속도 <span
+class="math inline">\(v_{base} = 350\)</span> - 대시 스킬 기여분 = <span
+class="math inline">\(420 - 350 = 70\)</span> - → 대시 스킬의
+거리/쿨다운 조합으로 70에 맞춤</p>
+<h3 id="기존-방식-vs-pda-방식">13.4 기존 방식 vs PDA 방식</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>기존 게임</th>
+<th>PDA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>출시 전</td>
+<td>감으로 스펙 설정</td>
+<td>공식에 대입</td>
+</tr>
+<tr>
+<td>출시 후</td>
+<td>핫픽스, 밸런스 패치 반복</td>
+<td>예측 검증</td>
+</tr>
+<tr>
+<td>밸런스 주기</td>
+<td>2주~1달</td>
+<td><strong>출시 전 확정 가능</strong></td>
+</tr>
+<tr>
+<td>예측 가능성</td>
+<td>낮음</td>
+<td>높음</td>
+</tr>
+</tbody>
+</table>
+<h3 id="결론">13.5 결론</h3>
+<p><span class="math display">\[ \boxed{v \rightarrow k_{champ} \rightarrow S_{champ} \rightarrow DPS_{required}} \]</span></p>
+<p><strong>모든 수치가 톱니바퀴처럼 맞물려 있어서, 어느 하나만 툭 튀어나온 OP가 나올 수 없는 구조입니다.</strong></p>
+<p>기획자가 이동속도 하나만 입력하면, 나머지 밸런스 계수는 방정식이 자동으로 도출합니다.</p>
+<hr />
+<h2 id="능력치-버젯-모델">14. 능력치 버젯 모델</h2>
+<p><em>v0.6 추가: 기존 v → k → S → DPS 체인을 확장하여 7개 스탯(+CC)을 하나의 버젯으로 통합</em></p>
+
+<h3 id="버젯-고정값">14.1 고정값</h3>
+<table>
+<thead>
+<tr><th>변수</th><th>값</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>\(d\)</td><td>105</td><td>베이스 → 노드 거리</td></tr>
+<tr><td>\(I\)</td><td>100</td><td>인테그리티 (본체 체력)</td></tr>
+<tr><td>\(t_d\)</td><td>1.5초</td><td>후딜레이</td></tr>
+<tr><td>\(DPS_{avg}\)</td><td>상수</td><td>평균 DPS</td></tr>
+</tbody>
+</table>
+
+<h3 id="버젯-변수">14.2 변수 (7개 스탯)</h3>
+<table>
+<thead>
+<tr><th>변수</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>\(ATK\)</td><td>공격력</td></tr>
+<tr><td>\(AS\)</td><td>공격속도</td></tr>
+<tr><td>\(v\)</td><td>이동속도</td></tr>
+<tr><td>\(r\)</td><td>사거리</td></tr>
+<tr><td>\(S\)</td><td>쉴드 (채널링 보호막)</td></tr>
+<tr><td>\(R\)</td><td>방어력 (armor)</td></tr>
+<tr><td>\(CC\)</td><td>CC 스킬 (t_cc, t_cooldown)</td></tr>
+</tbody>
+</table>
+
+<h3 id="버젯-공식">14.3 버젯 공식</h3>
+<p><strong>핵심 인사이트:</strong> 모든 스탯은 "총 전투 기여도"라는 하나의 버젯에서 분배됩니다.</p>
+<p><strong>단위:</strong> Budget = <strong>총 데미지</strong> (죽기 전까지 기여하는 데미지)</p>
+
+<p><span class="math display">\[ \boxed{Budget = DPS_{total} \times T_{attack} \times N_{fail}} \]</span></p>
+
+<p>풀어쓰면:</p>
+<p><span class="math display">\[ Budget = \underbrace{(ATK \times AS + CC_{equiv})}_{\text{공격력}} \times \underbrace{\left( \frac{d-r}{v} + \frac{S}{DPS_{avg}} \right)}_{\text{공격 시간}} \times \underbrace{\frac{I}{t_d \times DPS_{avg} \times (1-R)}}_{\text{실패 허용 횟수}} \]</span></p>
+
+<table>
+<thead>
+<tr><th>항</th><th>의미</th><th>단위</th></tr>
+</thead>
+<tbody>
+<tr><td>\(ATK \times AS\)</td><td>순수 DPS</td><td>데미지/초</td></tr>
+<tr><td>\(CC_{equiv}\)</td><td>CC 등가 DPS</td><td>데미지/초</td></tr>
+<tr><td>\(\frac{d-r}{v}\)</td><td>적 도착 시간</td><td>초</td></tr>
+<tr><td>\(\frac{S}{DPS_{avg}}\)</td><td>채널링 생존 시간</td><td>초</td></tr>
+<tr><td>\(\frac{I}{t_d \times DPS_{avg} \times (1-R)}\)</td><td>실패 허용 횟수</td><td>회</td></tr>
+</tbody>
+</table>
+
+<h4>CC 등가 DPS</h4>
+<p>하드 CC의 등가 가치:</p>
+<p><span class="math display">\[ CC_{equiv} = \frac{S/2 + t_{cc} \times DPS_{avg} \times k}{t_{cooldown}} \]</span></p>
+<table>
+<thead>
+<tr><th>변수</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>\(S/2\)</td><td>채널링 즉시 취소 가치</td></tr>
+<tr><td>\(t_{cc}\)</td><td>CC 지속 시간</td></tr>
+<tr><td>\(k\)</td><td>상황 계수</td></tr>
+<tr><td>\(t_{cooldown}\)</td><td>스킬 쿨다운</td></tr>
+</tbody>
+</table>
+
+<h3 id="버젯-무차별곡선">14.4 무차별곡선</h3>
+<p><strong>Budget이 같으면 밸런스가 맞습니다.</strong></p>
+
+<p>예시 (Melee vs Ranged):</p>
+<table>
+<thead>
+<tr><th></th><th>Melee</th><th>Ranged</th></tr>
+</thead>
+<tbody>
+<tr><td>\(v\)</td><td>1.8 (빠름)</td><td>1.4 (느림)</td></tr>
+<tr><td>\(r\)</td><td>6 (짧음)</td><td>14 (김)</td></tr>
+<tr><td>\(S\)</td><td>×0.8 (낮음)</td><td>×1.2 (높음)</td></tr>
+<tr><td>\(R\)</td><td>20% (높음)</td><td>10% (낮음)</td></tr>
+</tbody>
+</table>
+
+<p><strong>트레이드오프:</strong></p>
+<ul>
+<li>Melee: 기동력↑, 사거리↓ → 맞을 일 많음 → R↑ 필요</li>
+<li>Ranged: 기동력↓, 사거리↑ → 맞을 일 적음 → R↓ 가능</li>
+</ul>
+
+<h3 id="버젯-기존방식">14.5 기존 방식과의 관계</h3>
+<p><strong>기존 (13장):</strong></p>
+<p><span class="math display">\[ v \rightarrow k_{champ} \rightarrow S_{champ} \rightarrow DPS_{required} \]</span></p>
+
+<p><strong>확장 (14장):</strong></p>
+<p><span class="math display">\[ Budget \rightarrow (ATK, AS, v, r, S, R, CC) \]</span></p>
+
+<p>기존 체인은 <strong>레거시로 유지</strong>됩니다. 14장은 7개 스탯(+CC)을 하나의 버젯으로 통합한 확장 모델입니다.</p>
+
+<hr />
+<h2 id="반응-확산-방정식과의-연결">15. 반응-확산 방정식과의 연결</h2>
+<p>본 모델은 아래의 반응-확산 시스템을 간소화한 것이다:</p>
+<p><span class="math display">\[ \frac{\partial U}{\partial t} = D \nabla^2 U - \vec{v} \cdot \nabla U + R(U) \]</span></p>
+<table>
+<thead>
+<tr>
+<th>PDE 항</th>
+<th>본 모델에서의 대응</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(D \nabla^2 U\)</span> (확산)</td>
+<td><span class="math inline">\(t_{arrive}\)</span>: 맵 구조에서
+도출되는 도착 시간</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\vec{v} \cdot \nabla U\)</span>
+(이류)</td>
+<td><span class="math inline">\(v\)</span>: 챔피언 이동속도</td>
+</tr>
+<tr>
+<td><span class="math inline">\(R(U)\)</span> (반응)</td>
+<td><span class="math inline">\(w_i\)</span>: 노드 가치 (리스크
+결정)</td>
+</tr>
+</tbody>
+</table>
+<p>정상 상태(<span class="math inline">\(\frac{\partial U}{\partial t} =
+0\)</span>)에서의 해가 바로 <strong>균형 채널링 시간 <span
+class="math inline">\(T^*\)</span></strong>입니다.</p>
+<h3 id="보호막의-역할">보호막의 역할</h3>
+<p>보호막 <span class="math inline">\(S(L)\)</span>은 PDE의 <strong>경계
+조건(Boundary Condition)</strong>에 해당:</p>
+<ul>
+<li><span class="math inline">\(S(L) &gt; 0\)</span>: 채널링 유지 가능
+(경계 안정)</li>
+<li><span class="math inline">\(S(L) \leq 0\)</span> 또는 CC 적중:
+채널링 취소 (경계 붕괴)</li>
+</ul>
+<h3 id="란체스터-법칙의-역할">란체스터 법칙의 역할</h3>
+<p>란체스터 법칙(<span class="math inline">\(\rho = (A-n)^2 /
+B^2\)</span>)은 두 가지 용도로 사용된다:</p>
+<ol type="1">
+<li><strong>단일 채널링:</strong> 플레이어가 “지금 채널링해도 되는가?”를
+판단할 때 참고하는 <strong>리스크 지표</strong></li>
+<li><strong>다중 채널링:</strong> 채널링 시간 단축 비율 <span
+class="math inline">\(T^*_n / T^*\)</span>를 결정하는 <strong>보상
+계수</strong></li>
+</ol>
+<p><span class="math display">\[ \boxed{\text{단일 채널링: } T^* \text{는 고정값 (ρ 무관)}} \]</span> <span class="math display">\[ \boxed{\text{다중 채널링: } T^*_n = T^* \cdot \frac{\rho_n}{\rho_1} \text{ (ρ 연동)}} \]</span></p>
+<hr />
+<blockquote>
+<p><em>본 문서의 모델은 간소화되어 있습니다. 시야(CCTV)는 복잡도를
+줄이기 위해 제외되었고, 개별 챔피언 스킬 사거리는 평균값으로
+처리되었습니다. 실제로는 더 복잡한 요소가 개입할 수 있습니다.</em></p>
+<p><em>본 문서의 모든 방정식, 파라미터, 수치는 예시에 불과합니다. 더
+정확한 방정식과 수치는 여러분이 더 잘 찾을 것이라고 확신합니다.</em></p>
+</blockquote>
+<h1 id="pda-채널링-시간-공식의-유도">PDA 채널링 시간 공식의 유도</h1>
+<h2 id="차원-해석dimensional-analysis을-통한-특성-시간-도출">차원
+해석(Dimensional Analysis)을 통한 특성 시간 도출</h2>
+<hr />
+<h2 id="q.-정상-상태-조건에서-선형-공식이-어떻게-도출되는가">Q. 정상
+상태 조건에서 선형 공식이 어떻게 도출되는가?</h2>
+<blockquote>
+<p>“<span class="math inline">\(\frac{\partial U}{\partial t} =
+0\)</span> 조건에서 어떻게 <span class="math inline">\(T^* = \alpha
+\cdot t_{arrive} + \gamma \cdot w_i\)</span>가 나오는가?”</p>
+</blockquote>
+<hr />
+<h2 id="a.-답변">A. 답변</h2>
+<p>해당 공식은 편미분방정식을 해석적으로 엄밀하게 푼 결과(Exact
+Solution)가 아니라, <strong>‘차원 해석(Dimensional Analysis)’</strong>을
+통해 도출된 특성 시간(Characteristic Time)의 선형 결합입니다.</p>
+<p>복잡한 비선형 항을 소거하고, 게임 디자인에 필요한 <strong>지배
+방정식(Governing Equation)</strong>의 주요 항만을 추출하여
+근사하였습니다.</p>
+<hr />
+<h2 id="지배-방정식-정의-1차원-단순화">1. 지배 방정식 정의 (1차원
+단순화)</h2>
+<p>전장의 한 레인(Circuit)을 1차원 공간 <span
+class="math inline">\(x\)</span>로 가정하고, 영향력 밀도 <span
+class="math inline">\(U\)</span>에 대한 반응-확산 방정식을 씁니다.</p>
+<p><span class="math display">\[ \frac{\partial U}{\partial t} = D \frac{\partial^2 U}{\partial x^2} - v \frac{\partial U}{\partial x} - kU + S \]</span></p>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 26%" />
+<col style="width: 56%" />
+</colgroup>
+<thead>
+<tr>
+<th>항</th>
+<th>기호</th>
+<th>물리적 의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>확산</td>
+<td><span class="math inline">\(D \frac{\partial^2 U}{\partial
+x^2}\)</span></td>
+<td>정보/영향력의 자연 전파</td>
+</tr>
+<tr>
+<td>이류</td>
+<td><span class="math inline">\(v \frac{\partial U}{\partial
+x}\)</span></td>
+<td>챔피언의 이동 (Advection)</td>
+</tr>
+<tr>
+<td>반응</td>
+<td><span class="math inline">\(kU\)</span></td>
+<td>노드의 저항성 (Reaction/Decay)</td>
+</tr>
+<tr>
+<td>소스</td>
+<td><span class="math inline">\(S\)</span></td>
+<td>해킹 시도에 의한 영향력 주입</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="정상-상태steady-state-가정">2. 정상 상태(Steady State) 가정</h2>
+<p>채널링이 완료되는 시점은 시스템이 평형에 도달하는 순간이므로, 시간
+변화율을 0으로 둡니다.</p>
+<p><span class="math display">\[ \frac{\partial U}{\partial t} = 0 \]</span></p>
+<p><span class="math display">\[ 0 = D \frac{d^2 U}{d x^2} - v \frac{d U}{d x} - kU + S \]</span></p>
+<hr />
+<h2 id="스케일링scaling-및-차원-해석">3. 스케일링(Scaling) 및 차원
+해석</h2>
+<p>우리는 <span class="math inline">\(U(x)\)</span>의 곡선 모양이
+아니라, 이 과정이 완료되는 데 필요한 <strong>‘시간 척도(Time
+Scale)’</strong>가 궁금한 것입니다.</p>
+<p>미분 연산자를 특성 길이 <span class="math inline">\(L\)</span> (노드
+간 거리)로 치환하여 차원(Dimension)만 분석합니다.</p>
+<p><span class="math display">\[ \frac{d U}{d x} \sim \frac{U}{L}, \quad \frac{d^2 U}{d x^2} \sim \frac{U}{L^2} \]</span></p>
+<p>이를 정상 상태 식에 대입하여 <strong>시간 차원(<span
+class="math inline">\(T\)</span>)</strong>을 역산합니다.</p>
+<hr />
+<h3 id="a-이류advection-항의-시간-척도">3.A 이류(Advection) 항의 시간
+척도</h3>
+<p>이류 항 <span class="math inline">\(v \frac{\partial U}{\partial
+x}\)</span>이 지배적일 때, 특성 시간 <span
+class="math inline">\(\tau_{adv}\)</span>는:</p>
+<p><span class="math display">\[ \tau_{adv} \sim \frac{L}{v} \]</span></p>
+<p>이것은 게임 내 변수로 <strong><span
+class="math inline">\(t_{arrive}\)</span> (적 도착 시간)</strong>에
+해당합니다.</p>
+<p><span class="math display">\[ t_{arrive} = \frac{d - r}{v} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>변수</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(d\)</span></td>
+<td>적 스폰~앵커 거리</td>
+</tr>
+<tr>
+<td><span class="math inline">\(r\)</span></td>
+<td>적 스킬 사거리</td>
+</tr>
+<tr>
+<td><span class="math inline">\(v\)</span></td>
+<td>적 이동속도</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="b-반응reaction-항의-시간-척도">3.B 반응(Reaction) 항의 시간
+척도</h3>
+<p>반응 항 <span class="math inline">\(kU\)</span> (노드 저항)이
+지배적일 때, 특성 시간 <span
+class="math inline">\(\tau_{react}\)</span>는 반응률의 역수입니다.</p>
+<p><span class="math display">\[ \tau_{react} \sim \frac{1}{k} \]</span></p>
+<p>여기서 반응 계수 <span class="math inline">\(k\)</span>는 노드의
+방어력이나 중요도에 <strong>반비례</strong>하므로, 노드 가치 <span
+class="math inline">\(w_i\)</span>에 <strong>비례</strong>한다고
+모델링합니다.</p>
+<p><span class="math display">\[ \tau_{react} \propto w_i \]</span></p>
+<table>
+<thead>
+<tr>
+<th>노드</th>
+<th>가치 <span class="math inline">\(w_i\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1차 앵커</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2차 앵커</td>
+<td>2</td>
+</tr>
+<tr>
+<td>3차 앵커</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="선형-결합-linear-combination">4. 선형 결합 (Linear
+Combination)</h2>
+<p>전체 채널링 시간 <span class="math inline">\(T^*\)</span>는 이 두
+가지 물리적 과정이 복합적으로 작용하는 총 시간입니다:</p>
+<ol type="1">
+<li><strong>적이 도착하는 물리적 시간</strong> (이류)</li>
+<li><strong>노드를 해킹하는 논리적 시간</strong> (반응)</li>
+</ol>
+<p>따라서, 두 특성 시간의 선형 결합으로 근사할 수 있습니다.</p>
+<p><span class="math display">\[ T^* \approx C_1 \cdot \tau_{adv} + C_2 \cdot \tau_{react} \]</span></p>
+<p>이를 게임 디자인 변수로 치환하면 최종 공식이 됩니다:</p>
+<p><span class="math display">\[ \boxed{T^* = \alpha \cdot t_{arrive} + \gamma \cdot w_i} \]</span></p>
+<hr />
+<h2 id="계수-해석">5. 계수 해석</h2>
+<table>
+<thead>
+<tr>
+<th>계수</th>
+<th>정의</th>
+<th>물리적 의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(\alpha\)</span></td>
+<td>이류 항 가중치</td>
+<td>맵 크기 및 기동성 민감도</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\gamma\)</span></td>
+<td>반응 항 가중치</td>
+<td>노드 중요도 민감도</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="차원-검증">6. 차원 검증</h2>
+<p><span class="math display">\[ [T^*] = [\alpha] \cdot [t_{arrive}] + [\gamma] \cdot [w_i] \]</span></p>
+<p><span class="math display">\[ [s] = [1] \cdot [s] + [s] \cdot [1] = [s] \quad \checkmark \]</span></p>
+<hr />
+<h2 id="방법론적-정당성">7. 방법론적 정당성</h2>
+<p>차원 해석(Dimensional Analysis)은 물리학에서 <strong>표준적인 근사
+방법론</strong>입니다.</p>
+<table>
+<thead>
+<tr>
+<th>예시</th>
+<th>유도 방식</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>레이놀즈 수 (Reynolds Number)</td>
+<td>관성력/점성력 비율의 차원 해석</td>
+</tr>
+<tr>
+<td>마하 수 (Mach Number)</td>
+<td>유속/음속 비율의 차원 해석</td>
+</tr>
+<tr>
+<td>페클렛 수 (Péclet Number)</td>
+<td>이류/확산 비율의 차원 해석</td>
+</tr>
+</tbody>
+</table>
+<p>PDA의 채널링 시간 공식도 동일한 원리:</p>
+<p><span class="math display">\[ \boxed{\text{이류 시간 척도} + \text{반응 시간 척도} = \text{총 채널링 시간}} \]</span></p>
+<hr />
+<h2 id="요약-2">8. 요약</h2>
+<p><span class="math display">\[ \boxed{ \begin{aligned} &amp;\text{반응-확산 PDE} \\ &amp;\quad \downarrow \text{ 정상 상태 조건 } (\partial U/\partial t = 0) \\ &amp;\text{지배 방정식의 주요 항 추출} \\ &amp;\quad \downarrow \text{ 차원 해석} \\ &amp;\text{두 특성 시간 도출: } \tau_{adv}, \ \tau_{react} \\ &amp;\quad \downarrow \text{ 선형 결합} \\ &amp;\boxed{T^* = \alpha \cdot t_{arrive} + \gamma \cdot w_i} \end{aligned} } \]</span></p>
+<hr />
+<blockquote>
+<p><em>본 유도는 해석적 엄밀해가 아닌, 차원 해석을 통한 근사입니다.
+레이놀즈 수(Reynolds Number) 유도와 같은 방법론을 사용했습니다. 계수
+<span class="math inline">\(\alpha\)</span>, <span
+class="math inline">\(\gamma\)</span>는 시뮬레이션과 플레이테스트를 통해
+결정됩니다.</em></p>
+<p><em>더 엄밀한 수학적 전개는 전문가분들의 검토와 보완을
+기대합니다.</em></p>
+</blockquote>
+<h1 id="pda-내시균형-분석">PDA 내시균형 분석</h1>
+<h2 id="게임-이론적-관점">게임 이론적 관점</h2>
+<hr />
+<h2 id="핵심-질문">1. 핵심 질문</h2>
+<blockquote>
+<p>“이 게임에서 최적 전략은 존재하는가? 그리고 찾을 수 있는가?” “메타가
+고착화되는가?”</p>
+</blockquote>
+<hr />
+<h2 id="내시균형-존재-조건">2. 내시균형 존재 조건</h2>
+<h3 id="pda의-구조적-특성">2.1 PDA의 구조적 특성</h3>
+<table>
+<thead>
+<tr>
+<th>속성</th>
+<th>PDA</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>제로섬</td>
+<td>✓</td>
+<td>한 팀 승리 = 다른 팀 패배</td>
+</tr>
+<tr>
+<td>유한 게임</td>
+<td>✓</td>
+<td>브레이커로 강제 종료</td>
+</tr>
+<tr>
+<td>유한 상태 공간</td>
+<td>✓</td>
+<td>노드 수, 인원 고정</td>
+</tr>
+<tr>
+<td>점근선 수렴</td>
+<td>✓</td>
+<td>무한 스노볼 없음</td>
+</tr>
+</tbody>
+</table>
+<h3 id="트리-발산-방지-요소">2.2 트리 발산 방지 요소</h3>
+<p><strong>체력 회복 없음:</strong> <span class="math display">\[ \text{교전} \to \text{체력 소모} \to \text{리콜/리링크 강제} \to \text{상태 리셋} \]</span></p>
+<p>이 사이클이 <strong>자연스러운 트리 가지치기</strong> 역할입니다.</p>
+<p><strong>노드 수 유한:</strong> <span class="math display">\[ \text{상태 공간} = 3^n \quad (n = \text{노드 수}) \]</span></p>
+<p><strong>게임 시간 상한:</strong> <span class="math display">\[ D \leq \frac{T_{max}}{\bar{t}_{cycle}} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>항</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="math inline">\(D\)</span></td>
+<td>게임 트리 깊이</td>
+</tr>
+<tr>
+<td><span class="math inline">\(T_{max}\)</span></td>
+<td>최대 게임 시간 (브레이커까지)</td>
+</tr>
+<tr>
+<td><span class="math inline">\(\bar{t}_{cycle}\)</span></td>
+<td>평균 교전-리콜 사이클</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="결론-존재하지만-찾기-어려움">3. 결론: 존재하지만 찾기
+어려움</h2>
+<h3 id="존재-증명">3.1 존재 증명</h3>
+<p><span class="math display">\[ \boxed{\text{유한 게임} + \text{제로섬} \implies \text{내시균형 존재 (폰 노이만)}} \]</span></p>
+<h3 id="계산-복잡도">3.2 계산 복잡도</h3>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>복잡도 기여</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>노드 상태</td>
+<td><span class="math inline">\(3^n\)</span></td>
+</tr>
+<tr>
+<td>8명 동시 행동</td>
+<td>조합 폭발</td>
+</tr>
+<tr>
+<td>연속 위치</td>
+<td>무한 분기</td>
+</tr>
+<tr>
+<td>불완전 정보 (시야)</td>
+<td>확률적 분기</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{상태 공간} \to \infty \implies \text{해석적 해 불가능}} \]</span></p>
+<h3 id="게임-설계-관점">3.3 게임 설계 관점</h3>
+<table>
+<thead>
+<tr>
+<th>게임</th>
+<th>내시균형</th>
+<th>재미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>틱택토</td>
+<td>쉽게 찾음 → 무조건 무승부</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>체스</td>
+<td>존재하지만 못 찾음</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>바둑</td>
+<td>존재하지만 못 찾음</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><strong>PDA</strong></td>
+<td>존재하지만 못 찾음</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{내시균형 쉽게 찾음} = \text{게임이 &quot;풀림&quot;} = \text{수명 끝}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{존재하지만 찾기 어려움} = \text{깊이 있는 게임의 정의}} \]</span></p>
+<hr />
+<h2 id="lol과의-구조적-비교">4. LoL과의 구조적 비교</h2>
+<h3 id="복잡도의-종류">4.1 복잡도의 종류</h3>
+<table>
+<colgroup>
+<col style="width: 37%" />
+<col style="width: 31%" />
+<col style="width: 31%" />
+</colgroup>
+<thead>
+<tr>
+<th>구분</th>
+<th>LoL</th>
+<th>PDA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>복잡도 원천</td>
+<td><strong>조합</strong> (챔피언 × 아이템 × 룬)</td>
+<td><strong>상태</strong> (노드 × 시야 × 위치)</td>
+</tr>
+<tr>
+<td>어려움의 종류</td>
+<td>연산(Calculation)</td>
+<td>판단(Decision)</td>
+</tr>
+<tr>
+<td>해결 방법</td>
+<td>통계 → 최적해 수렴</td>
+<td>상황 → 트레이드오프</td>
+</tr>
+</tbody>
+</table>
+<p><strong>LoL (조합적 복잡도):</strong> - 160개 챔피언 × 아이템 × 룬 =
+경우의 수 폭발 - 하지만 <strong>최적화 문제(Optimization
+Problem)</strong>에 가까움 - 통계가 쌓이면 “이 챔피언엔 이 템트리가 승률
+53%”라는 정답이 나옴 - 결과: <strong>메타 고착화</strong> → 패치로
+숫자를 바꿔서 억지로 균형</p>
+<p><strong>PDA (상태 공간 복잡도):</strong> - 챔피언과 스킬은
+단순(3스킬) - “누가 어디를 점유했는가(노드 상태)” + “누가 정보를 가지고
+있는가(CCTV)” - 바둑처럼 <strong>정답이 없는 상황(Trade-off)</strong>의
+연속 - 통계적 정답 없음, 그 순간의 판단만 존재</p>
+<h3 id="정보의-역할">4.2 정보의 역할</h3>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>LoL</th>
+<th>PDA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정보(시야)</td>
+<td>보험(Insurance)</td>
+<td>탄약(Ammo)</td>
+</tr>
+<tr>
+<td>없어도 전투?</td>
+<td>가능 (스탯 체크)</td>
+<td>결정적 전투 불가능</td>
+</tr>
+</tbody>
+</table>
+<p><strong>LoL:</strong> - 시야가 없어도 잘 컸으면 스탯으로 찍어누름
+(페이스체크) - 정보 = “더 안전한” 플레이를 위한 보조 수단</p>
+<p><strong>PDA:</strong> - 해킹 시도 = 1명 채널링 = <strong>3v4 수적
+열세 강제</strong> - CCTV 장악 없이 해킹 = 백업 경로 모름 =
+<strong>구조적 자살</strong></p>
+<p><span class="math display">\[ \boxed{\text{LoL: 전투} \to \text{정보}} \]</span> <span class="math display">\[ \boxed{\text{PDA: 정보} \to \text{전투}} \]</span></p>
+<h3 id="스노볼-구조">4.3 스노볼 구조</h3>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>LoL</th>
+<th>PDA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>스노볼</td>
+<td>지수적 <span class="math inline">\(\frac{dG}{dt} = kG\)</span></td>
+<td>선형 <span class="math inline">\(\frac{dG}{dt} = k\)</span></td>
+</tr>
+<tr>
+<td>역전</td>
+<td>수학적으로 거의 불가능</td>
+<td>점근선 수렴 → 역전 가능</td>
+</tr>
+<tr>
+<td>굳히기</td>
+<td>쉬움</td>
+<td>3v4 리스크로 어려움</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="메타-고착화-저항-구조">5. 메타 고착화 저항 구조</h2>
+<h3 id="pda가-메타-고착화에-저항적인-이유">5.1 PDA가 메타 고착화에
+저항적인 이유</h3>
+<table>
+<thead>
+<tr>
+<th>방어 기제</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>무기 교체</strong></td>
+<td>밴픽 이후에도 상성 조정 가능</td>
+</tr>
+<tr>
+<td><strong>체력 100 고정</strong></td>
+<td>스탯 체크(압도) 불가능, 집중 포화에 녹음</td>
+</tr>
+<tr>
+<td><strong>이동속도 고정</strong></td>
+<td>단일 스탯 메타 억제</td>
+</tr>
+<tr>
+<td><strong>3v4 리스크</strong></td>
+<td>유리한 팀도 빈틈 노출 강제</td>
+</tr>
+<tr>
+<td><strong>CCTV</strong></td>
+<td>정보 우위가 스탯 우위 상쇄</td>
+</tr>
+</tbody>
+</table>
+<h3 id="레이드-보스-불가능">5.2 “레이드 보스” 불가능</h3>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>LoL (문도)</th>
+<th>PDA (만렙)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>체력</td>
+<td>5000+</td>
+<td><strong>100 고정</strong></td>
+</tr>
+<tr>
+<td>회복</td>
+<td>있음</td>
+<td><strong>없음</strong></td>
+</tr>
+<tr>
+<td>1v5</td>
+<td>버팀</td>
+<td><strong>불가능</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{5레벨 챔피언도 1레벨 4명에게 녹는다 (체력 100)}} \]</span></p>
+<h3 id="최적화-레이어-비교">5.3 최적화 레이어 비교</h3>
+<table>
+<thead>
+<tr>
+<th>레이어</th>
+<th>LoL</th>
+<th>PDA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>픽/밴</td>
+<td>✓ (수렴)</td>
+<td>△ (무기 교체로 완화)</td>
+</tr>
+<tr>
+<td>빌드</td>
+<td>✓ (수렴)</td>
+<td>❌ (없음)</td>
+</tr>
+<tr>
+<td>룬</td>
+<td>✓ (수렴)</td>
+<td>❌ (없음)</td>
+</tr>
+<tr>
+<td>정글 루트</td>
+<td>✓ (수렴)</td>
+<td>❌ (해당 없음)</td>
+</tr>
+<tr>
+<td>인게임 판단</td>
+<td>❌ (상황 의존)</td>
+<td>❌ (상황 의존)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>LoL:</strong> 4개 레이어가 통계로 굳음 → 메타
+<strong>PDA:</strong> 최적화 가능 레이어가 거의 없음</p>
+<hr />
+<h2 id="반응-확산-pde-기반-밸런싱">6. 반응-확산 PDE 기반 밸런싱</h2>
+<h3 id="pde와-대수방정식의-관계">6.1 PDE와 대수방정식의 관계</h3>
+<p>채널링 시간 공식:</p>
+<p><span class="math display">\[ T^* = \alpha \cdot t_{arrive} + \gamma \cdot w_i \]</span></p>
+<p><strong>주의:</strong> 이 식 자체는 <strong>대수방정식(Algebraic
+Equation)</strong>입니다. 미분 기호(<span
+class="math inline">\(\partial\)</span>)가 없습니다.</p>
+<p>그러나 이 식은 <strong>반응-확산 PDE의 정상 상태 해(Steady State
+Solution)</strong>를 근사한 것이다:</p>
+<p><span class="math display">\[ \frac{\partial U}{\partial t} = D \nabla^2 U - \vec{v} \cdot \nabla U + R(U) \]</span></p>
+<p>정상 상태 조건(<span class="math inline">\(\frac{\partial U}{\partial
+t} = 0\)</span>)에서 위 PDE를 풀면, 균형점이 대수적 관계로 도출됩니다.</p>
+<p><span class="math display">\[ \boxed{\text{원리: PDE} \to \text{밸런싱에 사용: 정상 상태 해 (대수식)}} \]</span></p>
+<h3 id="챔피언-스탯의-출처">6.2 챔피언 스탯의 출처</h3>
+<p>PDA의 모든 챔피언은 <strong>동일한 균형 방정식</strong>에서
+파라미터가 도출된다:</p>
+<p><span class="math display">\[ t_{arrive} = \frac{d - \bar{r}}{\bar{v}} \]</span></p>
+<p><strong>평균 챔피언 능력치 <span class="math inline">\((\bar{v},
+\bar{r}, \bar{a})\)</span>가 공식에 포합니다.</strong></p>
+<blockquote>
+<p><strong>저자 주:</strong> 방어력(Resistance)에 대해선 당장 답을 찾지
+못했습니다. 이 문서를 보는 여러분이라면 찾을 거라 믿습니다. 우선은
+제외하였습니다.</p>
+</blockquote>
+<h3 id="신규-챔피언-밸런싱">6.3 신규 챔피언 밸런싱</h3>
+<p>신규 챔피언의 편차: <span class="math display">\[ \Delta v = v_{new} - \bar{v}, \quad \Delta r = r_{new} - \bar{r}, \quad ... \]</span></p>
+<p>이 편차를 기반으로 <strong>출시 전 보정 계수 도출 가능.</strong></p>
+<h3 id="왜-1티어가-생기기-어려운가">6.4 왜 1티어가 생기기 어려운가</h3>
+<p><span class="math display">\[ \boxed{\text{모든 챔피언} \approx \text{균형점 근처 (정상 상태 해 기반)}} \]</span></p>
+<p>특정 챔피언만 압도적이 되려면 <strong>방정식 자체를 깨야 함</strong>
+→ 구조적으로 어렵습니다.</p>
+<h3 id="밸런스-방식-비교">6.5 밸런스 방식 비교</h3>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>LoL</th>
+<th>PDA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>밸런싱 방식</td>
+<td>패치로 숫자 조절</td>
+<td><strong>PDE 정상 상태 해 기반</strong></td>
+</tr>
+<tr>
+<td>메타 관리</td>
+<td>라이엇이 함</td>
+<td>시스템이 자동 조절</td>
+</tr>
+<tr>
+<td>1티어 챔피언</td>
+<td>항상 존재</td>
+<td><strong>구조적으로 억제됨</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="요약-3">7. 요약</h2>
+<h3 id="내시균형">내시균형</h3>
+<p><span class="math display">\[ \boxed{\text{PDA는 내시균형이 존재하지만, 계산적으로 찾기 어려운 구조를 가진다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{이는 &quot;계속 연구해도 새로운 전략이 나오는&quot; 장수 게임의 조건입니다.}} \]</span></p>
+<h3 id="메타-저항">메타 저항</h3>
+<p><span class="math display">\[ \boxed{\text{PDA는 구조적으로 메타 고착화에 저항적입니다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{이는 패치 의존 밸런스가 아닌, 시스템 자체가 만드는 자연 생태계다.}} \]</span></p>
+<h3 id="pde-정상-상태-해-기반-밸런싱">PDE 정상 상태 해 기반 밸런싱</h3>
+<p><span class="math display">\[ \boxed{\text{채널링 시간 공식은 반응-확산 PDE의 정상 상태 해를 근사한 것입니다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{모든 챔피언 스탯이 동일한 균형점 기반으로 밸런싱됩니다.}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{따라서 특정 챔피언이 구조적으로 압도적(OP)이 되는 상황이 억제됩니다.}} \]</span></p>
+<hr />
+<blockquote>
+<p><em>본 분석은 구조적/직관적 수준의 논의입니다. 엄밀한 증명은 실제
+게임 구현 후 시뮬레이션을 통해 검증되어야 합니다.</em></p>
+</blockquote>
+<h1 id="pda는-재미있을까">PDA는 재미있을까?</h1>
+<h2 id="히치콕의-서스펜스-구조로-분석하는-게임의-긴장감">히치콕의
+서스펜스 구조로 분석하는 게임의 긴장감</h2>
+<hr />
+<h2 id="핵심-질문-1">1. 핵심 질문</h2>
+<blockquote>
+<p>“조작이 간단하고, 화려한 스킬 콤보가 없고, 킬이나 파괴의 도파민이
+적은 게임이 재미있을 수 있는가?”</p>
+</blockquote>
+<p>이 우려를 인지하고 있습니다. 본 문서에서 이를 논파하고자 합니다.</p>
+<hr />
+<h2 id="알프레드-히치콕의-서스펜스-이론">2. 알프레드 히치콕의 서스펜스
+이론</h2>
+<h3 id="서프라이즈-vs-서스펜스">2.1 서프라이즈 vs 서스펜스</h3>
+<p>히치콕은 인터뷰에서 이렇게 말했다:</p>
+<blockquote>
+<p>“테이블 밑에 폭탄이 있습니다. 관객은 모른다. 갑자기 터집니다. 15초간
+놀란다.” → <strong>서프라이즈</strong></p>
+<p>“테이블 밑에 폭탄이 있습니다. 관객은 안다. 5분간 조마조마합니다.” →
+<strong>서스펜스</strong></p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>정의</th>
+<th>지속시간</th>
+<th>감정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>서프라이즈</strong></td>
+<td>예상치 못한 순간</td>
+<td>5~15초</td>
+<td>놀람</td>
+</tr>
+<tr>
+<td><strong>서스펜스</strong></td>
+<td>예상된 위험의 기다림</td>
+<td>수 분</td>
+<td>긴장, 조마조마</td>
+</tr>
+</tbody>
+</table>
+<h3 id="핵심-인사이트-1">2.2 핵심 인사이트</h3>
+<p><span class="math display">\[ \boxed{\text{서프라이즈는 끝내는 장치입니다. 서스펜스가 본질입니다.}} \]</span></p>
+<p>화려한 콤보, 펜타킬, 폭발 이펙트 — 이것들은 전부
+<strong>서프라이즈</strong>.</p>
+<p>서스펜스 없이 서프라이즈만 연속되면?</p>
+<blockquote>
+<p>터지고 → 끝 → 기다림 → 터지고 → 끝 → 기다림</p>
+</blockquote>
+<p><strong>공허한 자극의 반복.</strong></p>
+<h3 id="미장센-mise-en-scène">2.3 미장센 (Mise-en-scène)</h3>
+<p>영화에서 미장센은 <strong>화면 구성과 시각적 연출</strong>을
+의미합니다.</p>
+<p>PDA에서 <strong>색깔</strong>이 이 역할을 한다:</p>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>노드 색깔</td>
+<td>점령 상태를 한눈에 전달</td>
+</tr>
+<tr>
+<td>맵 전체 색 분포</td>
+<td>“누가 이기고 있나”를 시각적으로 표현</td>
+</tr>
+<tr>
+<td>색의 변화</td>
+<td>전세 역전을 직관적으로 보여줌</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{색깔 = 미장센 = 서사의 시각화}} \]</span></p>
+<h3 id="맥거핀-macguffin">2.4 맥거핀 (MacGuffin)</h3>
+<p>히치콕의 정의:</p>
+<blockquote>
+<p>“캐릭터들은 신경 쓰지만, 관객에게는 그 자체로 중요하지 않은 것.
+플롯을 이끄는 장치.”</p>
+</blockquote>
+<p>PDA의 <strong>오브젝트</strong>가 맥거핀 역할을 한다:</p>
+<table>
+<thead>
+<tr>
+<th>오브젝트</th>
+<th>맥거핀 역할</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>앵커</td>
+<td>“저거 먹어야 해” → 행동 유발</td>
+</tr>
+<tr>
+<td>토이 솔져</td>
+<td>“저거 먹어야 해” → 행동 유발</td>
+</tr>
+<tr>
+<td>플라스틱 드래곤</td>
+<td>“저거 먹어야 해” → 행동 유발</td>
+</tr>
+<tr>
+<td>디멘션 브레이커</td>
+<td>“저거 먹어야 해” → 행동 유발</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{오브젝트 = 맥거핀 = 플롯을 이끄는 장치}} \]</span></p>
+<p>오브젝트 자체가 중요한 게 아닙니다. 오브젝트를 <strong>두고 벌이는
+싸움</strong>이 긴장감을 만듭니다.</p>
+
+<h3 id="서스펜스-6원칙">2.5 서스펜스의 구성 요소</h3>
+<p>서스펜스는 일반적으로 다음과 같은 요소들을 가진다. PDA는 이 요소들을 게임 시스템으로 구현했다:</p>
+
+<table>
+<thead>
+<tr><th>요소</th><th>정의</th><th>PDA 적용</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>정보의 비대칭성</strong></td>
+<td>관객은 위험을 알지만, 등장인물은 모른다</td>
+<td>노이즈에 숨은 적 → 플레이어는 모름, 관전자는 앎</td>
+</tr>
+<tr>
+<td><strong>지속적인 기대감 유발</strong></td>
+<td>결과를 모르는 불확실성이 지속됨</td>
+<td>채널링 4초 동안 "성공할까? 끊길까?" 지속</td>
+</tr>
+<tr>
+<td><strong>등장인물에 대한 관심</strong></td>
+<td>인물에 감정 이입해야 긴장감 발생</td>
+<td>내 해커, 내 팀 → 자연스러운 감정 이입</td>
+</tr>
+<tr>
+<td><strong>위협의 시각화 및 암시</strong></td>
+<td>직접 보여주지 않아도 위험을 암시</td>
+<td>미니맵 적 표시, 핑 시스템, 노이즈 근처 긴장</td>
+</tr>
+<tr>
+<td><strong>예측 속 반전</strong></td>
+<td>예측 가능한 전개 + 예상치 못한 반전</td>
+<td>채널링 99% 직전 적 도착 / 팀파이트 역전</td>
+</tr>
+<tr>
+<td><strong>갈등의 점진적 고조</strong></td>
+<td>이야기가 진행될수록 긴장 고조</td>
+<td>후반 노드 가치 ↑, 디멘션 브레이커 스폰</td>
+</tr>
+</tbody>
+</table>
+
+<p><strong>특히 "정보의 비대칭성"이 핵심이다:</strong></p>
+<blockquote>
+<p>히치콕: "관객은 폭탄이 있다는 걸 안다. 등장인물은 모른다."</p>
+<p>PDA: "관전자는 노이즈에 적이 숨어있는 걸 안다. 플레이어는 모른다."</p>
+</blockquote>
+<p>e스포츠 관전 시, 양 팀의 시야가 모두 보이기 때문에 관객은 <strong>"저기 숨어있는데...!"</strong>라며 조마조마하게 된다. 플레이어들은 모른다. 이것이 <strong>노이즈 시스템이 만들어내는 정보 비대칭</strong>이다.</p>
+
+<p><span class="math display">\[ \boxed{\text{노이즈 = 정보 비대칭 = 서스펜스의 구조적 기반}} \]</span></p>
+
+<hr />
+<h2 id="배틀그라운드-분석">3. 배틀그라운드 분석</h2>
+<h3 id="두-가지-긴장감-레이어">3.1 두 가지 긴장감 레이어</h3>
+<p><strong>레이어 1: 블루존 (서스펜스)</strong></p>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>언제 줄어드나?</td>
+<td><strong>안다</strong> (타이머)</td>
+</tr>
+<tr>
+<td>어디로 줄어드나?</td>
+<td><strong>안다</strong> (미니맵)</td>
+</tr>
+<tr>
+<td>안 움직이면?</td>
+<td><strong>죽는다</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>“3분 후에 죽음이 온다. 똑딱똑딱…”</p>
+</blockquote>
+<p><span class="math display">\[ \boxed{\text{블루존 = 예정된 죽음의 카운트다운 = 서스펜스}} \]</span></p>
+<p><strong>레이어 2: 적 위치 (불확실성)</strong></p>
+<table>
+<thead>
+<tr>
+<th>상황</th>
+<th>정보</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>능선 너머</td>
+<td><strong>모른다</strong></td>
+</tr>
+<tr>
+<td>저 집 안</td>
+<td><strong>모른다</strong></td>
+</tr>
+<tr>
+<td>발소리 주인</td>
+<td><strong>모른다</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{적 위치 = 불확실성의 공포}} \]</span></p>
+<h3 id="배틀그라운드의-천재성">3.2 배틀그라운드의 천재성</h3>
+<p><span class="math display">\[ \boxed{\text{서스펜스(안다) + 불확실성(모른다) = 긴장감 레이어링}} \]</span></p>
+<blockquote>
+<p>“블루존 줄어드니까 움직여야 해” (서스펜스) “근데 움직이면 어디서 총
+맞을지 몰라” (불확실성)</p>
+</blockquote>
+<p>두 긴장감이 <strong>동시에</strong> 작동합니다.</p>
+<hr />
+<h2 id="lol-라인전-분석">4. LoL 라인전 분석</h2>
+<h3 id="안다---타이머-기반-서스펜스">4.1 “안다” - 타이머 기반
+서스펜스</h3>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>정보</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>스킬 쿨다운</td>
+<td><strong>안다</strong></td>
+</tr>
+<tr>
+<td>소환사 주문 (플래시 5분)</td>
+<td><strong>안다</strong></td>
+</tr>
+<tr>
+<td>드래곤/바론 타이머</td>
+<td><strong>안다</strong></td>
+</tr>
+<tr>
+<td>정글 몬스터 리스폰</td>
+<td><strong>안다</strong></td>
+</tr>
+<tr>
+<td>미니언 웨이브 주기</td>
+<td><strong>안다</strong></td>
+</tr>
+<tr>
+<td>포탑 사거리/공격력</td>
+<td><strong>안다</strong></td>
+</tr>
+<tr>
+<td>상대 아이템 (탭)</td>
+<td><strong>안다</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>“플래시 30초 후 돌아온다. 그때 이니시 간다.” “드래곤 1분 후 리스폰.
+모여야 합니다.” “궁 쿨 돌아오면 한타 가능.”</p>
+</blockquote>
+<p><span class="math display">\[ \boxed{\text{LoL = 타이머 기반 서스펜스}} \]</span></p>
+<h3 id="모른다---불확실성의-읽기-싸움">4.2 “모른다” - 불확실성의 읽기
+싸움</h3>
+<table>
+<thead>
+<tr>
+<th>상황</th>
+<th>정보</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>상대가 언제 이니시 거나?</td>
+<td><strong>모른다</strong></td>
+</tr>
+<tr>
+<td>언제 라인 밀고 귀환하나?</td>
+<td><strong>모른다</strong></td>
+</tr>
+<tr>
+<td>갱킹이 언제 오나?</td>
+<td><strong>모른다</strong></td>
+</tr>
+<tr>
+<td>정글러 보였는데, 갱? 파밍?</td>
+<td><strong>모른다</strong></td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{LoL = 위치/의도 불확실성}} \]</span></p>
+<h3 id="lol의-긴장감-구조">4.3 LoL의 긴장감 구조</h3>
+<p><span class="math display">\[ \boxed{\text{LoL = 타이머 서스펜스 + 위치/의도 불확실성}} \]</span></p>
+<p>배틀그라운드와 마찬가지로, LoL도 <strong>두 레이어의
+긴장감</strong>을 동시에 운용합니다.</p>
+<hr />
+<h2 id="pda-구조-분석">5. PDA 구조 분석</h2>
+<h3 id="채널링-서스펜스-불확실성의-결합">5.1 채널링 = 서스펜스 +
+불확실성의 결합</h3>
+<p><strong>“안다” (서스펜스):</strong> &gt; “채널링이 성공하면 전장이
+뒤집힌다.” &gt; “채널링 시간이 3초라는 걸 안다.” &gt; “게이지가 차오르는
+걸 본다.”</p>
+<p><strong>“모른다” (불확실성):</strong> &gt; “상대 암살자가
+노이즈(부쉬)에 대기 중일까?” &gt; “상대가 리스크를 감수하고 들어올까?”
+&gt; “끊기나? 성공하나?”</p>
+<table>
+<thead>
+<tr>
+<th>요소</th>
+<th>히치콕 서스펜스</th>
+<th>PDA 채널링</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정보</td>
+<td>폭탄 있음을 안다</td>
+<td>성공하면 뒤집힌다는 걸 안다</td>
+</tr>
+<tr>
+<td>불확실성</td>
+<td>언제 터지나?</td>
+<td>상대가 오나?</td>
+</tr>
+<tr>
+<td>시간 경과</td>
+<td>똑딱똑딱</td>
+<td>게이지 차오름</td>
+</tr>
+<tr>
+<td>결과</td>
+<td>폭발 or 해제</td>
+<td>성공 or 끊김</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{채널링 = &quot;이기면 뒤집힌다(안다)&quot; + &quot;적이 올까?(모른다)&quot;}} \]</span></p>
+<p>채널링 하나에 <strong>서스펜스와 불확실성이 동시에</strong>
+작동합니다.</p>
+<h3 id="cctv-불확실성-관리-장치">5.2 CCTV = 불확실성 관리 장치</h3>
+<table>
+<thead>
+<tr>
+<th>CCTV 상태</th>
+<th>정보</th>
+<th>긴장감</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>장악</td>
+<td>적 위치 <strong>안다</strong></td>
+<td>서스펜스만 (관리 가능)</td>
+</tr>
+<tr>
+<td>미장악</td>
+<td>적 위치 <strong>모른다</strong></td>
+<td>서스펜스 + 불확실성 (극대화)</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{CCTV = 불확실성을 제거하여 리스크를 관리하는 장치}} \]</span></p>
+<p><strong>CCTV 없이 채널링?</strong> &gt; “성공하면 뒤집힌다” (안다)
+&gt; “적이 올까?” (모른다) &gt; “노이즈에 숨어있을까?” (모른다) &gt; “몇
+명이 올까?” (모른다)</p>
+<p>불확실성 폭발 → 긴장감 극대화</p>
+<h3 id="pda의-긴장감-레이어링">5.3 PDA의 긴장감 레이어링</h3>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 29%" />
+<col style="width: 29%" />
+<col style="width: 23%" />
+</colgroup>
+<thead>
+<tr>
+<th>상황</th>
+<th>서스펜스</th>
+<th>불확실성</th>
+<th>긴장감</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>채널링 + CCTV 있음</td>
+<td>✓ (성공하면 뒤집힌다)</td>
+<td>△ (적 위치는 안다)</td>
+<td>중간</td>
+</tr>
+<tr>
+<td>채널링 + CCTV 없음</td>
+<td>✓ (성공하면 뒤집힌다)</td>
+<td>✓ (적이 올까? 모른다)</td>
+<td><strong>극대화</strong></td>
+</tr>
+<tr>
+<td>이동 중 + CCTV 없음</td>
+<td>✗</td>
+<td>✓ (적 위치 모른다)</td>
+<td>경계</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{채널링 하나에 서스펜스와 불확실성이 동시 작동}} \]</span></p>
+<p><span class="math display">\[ \boxed{\text{CCTV가 없으면 불확실성까지 추가되어 긴장감 극대화}} \]</span></p>
+<hr />
+<h2 id="세-게임-비교">6. 세 게임 비교</h2>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 40%" />
+<col style="width: 45%" />
+</colgroup>
+<thead>
+<tr>
+<th>게임</th>
+<th>서스펜스 (안다)</th>
+<th>불확실성 (모른다)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>배틀그라운드</td>
+<td>블루존</td>
+<td>적 위치</td>
+</tr>
+<tr>
+<td>LoL</td>
+<td>쿨다운/오브젝트 타이머</td>
+<td>갱킹, 이니시, 의도</td>
+</tr>
+<tr>
+<td><strong>PDA</strong></td>
+<td><strong>채널링 (성공하면 뒤집힌다)</strong></td>
+<td><strong>CCTV 미장악 (적이 올까?)</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="pda의-차별점">6.1 PDA의 차별점</h3>
+<p>배그와 LoL은 서스펜스와 불확실성이 <strong>별개 시스템</strong>에서
+온다: - 배그: 블루존(서스펜스) ≠ 적 위치(불확실성) - LoL:
+타이머(서스펜스) ≠ 갱킹(불확실성)</p>
+<p>PDA의 <strong>채널링</strong>은 하나의 행동에 <strong>둘 다
+내장</strong>: - “성공하면 뒤집힌다” (서스펜스) - “적이 올까?”
+(불확실성)</p>
+<p><span class="math display">\[ \boxed{\text{채널링 = 서스펜스와 불확실성의 결합체}} \]</span></p>
+<h3 id="pda의-추가-요소">6.2 PDA의 추가 요소</h3>
+<table>
+<thead>
+<tr>
+<th>영화 용어</th>
+<th>PDA 대응</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>서스펜스 + 불확실성</td>
+<td>채널링</td>
+<td>긴장감 유발 (결합)</td>
+</tr>
+<tr>
+<td>불확실성 관리</td>
+<td>CCTV</td>
+<td>리스크 조절</td>
+</tr>
+<tr>
+<td><strong>미장센</strong></td>
+<td><strong>색깔</strong></td>
+<td>상황 전달</td>
+</tr>
+<tr>
+<td><strong>맥거핀</strong></td>
+<td><strong>오브젝트</strong></td>
+<td>행동 유발</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{PDA = 서스펜스 + 불확실성 + 미장센 + 맥거핀}} \]</span></p>
+<p>히치콕 영화의 핵심 기법들이 게임 구조에 내장되어 있습니다.</p>
+<hr />
+<h2 id="우려에-대한-반론">7. 우려에 대한 반론</h2>
+<h3 id="우려">7.1 우려</h3>
+<blockquote>
+<p>“조작이 간단하다” “화려한 스킬 콤보가 없다” “킬이나 파괴의 도파민이
+적다”</p>
+</blockquote>
+<h3 id="반론">7.2 반론</h3>
+<table>
+<thead>
+<tr>
+<th>우려</th>
+<th>실체</th>
+<th>반론</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>화려한 콤보</td>
+<td>서프라이즈</td>
+<td>끝내는 장치일 뿐</td>
+</tr>
+<tr>
+<td>킬 도파민</td>
+<td>서프라이즈</td>
+<td>끝내는 장치일 뿐</td>
+</tr>
+<tr>
+<td>파괴 쾌감</td>
+<td>서프라이즈</td>
+<td>끝내는 장치일 뿐</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math display">\[ \boxed{\text{서프라이즈는 끝내는 장치입니다. 서스펜스가 본질입니다.}} \]</span></p>
+<h3 id="역설">7.3 역설</h3>
+<p>서프라이즈가 많으면 좋은가?</p>
+<blockquote>
+<p>폭발 → 폭발 → 폭발 → 폭발</p>
+</blockquote>
+<p><strong>감각 마비.</strong> 더 큰 자극이 필요해집니다.</p>
+<p>반면 서스펜스가 충분하면?</p>
+<blockquote>
+<p>긴장… 긴장… 긴장… → 해소(서프라이즈)</p>
+</blockquote>
+<p><strong>적은 서프라이즈도 임팩트 있습니다.</strong></p>
+<h3 id="pda의-전략">7.4 PDA의 전략</h3>
+<p><span class="math display">\[ \boxed{\text{서스펜스를 극대화하여, 적은 서프라이즈로 큰 만족감}} \]</span></p>
+<table>
+<thead>
+<tr>
+<th>전략</th>
+<th>효과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>채널링 긴장감</td>
+<td>성공 시 큰 쾌감</td>
+</tr>
+<tr>
+<td>다운링크 희소성</td>
+<td>킬 시 높은 가치</td>
+</tr>
+<tr>
+<td>역전 가능성</td>
+<td>승리 시 서사 완성</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="결론-1">8. 결론</h2>
+<h3 id="검증된-공식">8.1 검증된 공식</h3>
+<p>배틀그라운드와 LoL이 성공한 이유:</p>
+<p><span class="math display">\[ \boxed{\text{서스펜스 + 불확실성 = 긴장감의 레이어링}} \]</span></p>
+<h3 id="pda의-진화">8.2 PDA의 진화</h3>
+<p>PDA는 이 검증된 공식을 <strong>하나의 행동(채널링)에
+압축</strong>했다:</p>
+<p><span class="math display">\[ \boxed{\text{채널링 = 서스펜스(성공하면 뒤집힌다) + 불확실성(적이 올까?)}} \]</span></p>
+<p>여기에 히치콕 영화의 기법을 추가했다:</p>
+<p><span class="math display">\[ \boxed{\text{미장센(색깔) + 맥거핀(오브젝트)}} \]</span></p>
+<h3 id="히치콕의-교훈">8.3 히치콕의 교훈</h3>
+<p><span class="math display">\[ \boxed{\text{&quot;폭탄을 터뜨리는 게 중요한 게 아닙니다. 폭탄이 있다는 걸 알려주는 게 중요하다.&quot;}} \]</span></p>
+<p>PDA의 채널링은 바로 그 “폭탄이 있다는 걸 알려주는” 장치입니다.</p>
+<h3 id="최종-답변">8.4 최종 답변</h3>
+<blockquote>
+<p>“이 게임이 재미있을까?”</p>
+</blockquote>
+<p><span class="math display">\[ \boxed{\text{서스펜스 구조가 작동하는 한, 재미있습니다.}} \]</span></p>
+<hr />
+<blockquote>
+<p><em>본 문서는 게임 재미의 구조적 분석입니다. 실제 재미는 플레이
+테스트를 통해 검증되어야 합니다.</em></p>
+</blockquote>
+<h1 id="pda-용어집-glossary">PDA 용어집 (Glossary)</h1>
+<h2 id="moba-pda-용어-대응표">MOBA → PDA 용어 대응표</h2>
+<hr />
+<blockquote>
+<p><strong>저자 주:</strong> 본편에서는 MOBA 문법에 익숙한 분들을 위해
+대부분 기존 MOBA 용어를 사용하고 있습니다. 그러나 실제로는 아래와 같은
+PDA 고유 용어를 구상 중입니다.</p>
+<p><strong>확정이 아니며, 더 좋은 의견이 있다면 언제든 변경
+가능합니다.</strong></p>
+</blockquote>
+<hr />
+<h2 id="전장-the-network">1. 전장 (The Network)</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 37%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr>
+<th>MOBA 용어</th>
+<th>PDA 용어</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lane</td>
+<td><strong>Circuit (서킷)</strong></td>
+<td>데이터와 미니언이 흐르는 주 경로</td>
+</tr>
+<tr>
+<td>Jungle</td>
+<td><strong>Crosszone (크로스존)</strong></td>
+<td>서킷 사이의 교차/간섭 구역 (몬스터 없음)</td>
+</tr>
+<tr>
+<td>Tower</td>
+<td><strong>Anchor (앵커)</strong></td>
+<td>거점. 해킹(Hacking)을 통해 점유해야 하는 대상</td>
+</tr>
+<tr>
+<td>Nexus / Core</td>
+<td><strong>Guardian (가디언)</strong></td>
+<td>최종 목표. 해킹으로 색 반전</td>
+</tr>
+<tr>
+<td>Bush / Brush</td>
+<td><strong>Noise (노이즈)</strong></td>
+<td>신호 교란 지역. 외부에서 내부 감지 불가</td>
+</tr>
+<tr>
+<td>Ward</td>
+<td><strong>CCTV</strong></td>
+<td>시야 확보 장치</td>
+</tr>
+<tr>
+<td>Vision</td>
+<td><strong>Vision (비전)</strong></td>
+<td>시야 (그대로 사용)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="플레이어-the-actors">2. 플레이어 (The Actors)</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 37%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr>
+<th>MOBA 용어</th>
+<th>PDA 용어</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Player</td>
+<td><strong>Operator (오퍼레이터)</strong></td>
+<td>현실의 플레이어</td>
+</tr>
+<tr>
+<td>Champion / Hero</td>
+<td><strong>Hacker (해커)</strong></td>
+<td>가상의 아바타 (피규어 + 홀로그램)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="생존-및-전투-survival-combat">3. 생존 및 전투 (Survival &amp;
+Combat)</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 37%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr>
+<th>MOBA 용어</th>
+<th>PDA 용어</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HP</td>
+<td><strong>Integrity / IP (무결성)</strong></td>
+<td>캐릭터의 생명력</td>
+</tr>
+<tr>
+<td>Shield</td>
+<td><strong>Shell (쉘)</strong></td>
+<td>추가 방어막</td>
+</tr>
+<tr>
+<td>Heal</td>
+<td><strong>Patch (패치)</strong></td>
+<td>회복 행위</td>
+</tr>
+<tr>
+<td>Capture / Siege</td>
+<td><strong>Hacking (해킹)</strong></td>
+<td>앵커를 점유하는 모든 행위</td>
+</tr>
+<tr>
+<td>Kill</td>
+<td><strong>Downlink (다운링크)</strong></td>
+<td>적 처치</td>
+</tr>
+<tr>
+<td>Assist</td>
+<td><strong>Sync (싱크)</strong></td>
+<td>협력 처치</td>
+</tr>
+<tr>
+<td>Death</td>
+<td><strong>Offline (오프라인)</strong></td>
+<td>사망 상태</td>
+</tr>
+<tr>
+<td>Respawn</td>
+<td><strong>Relink (리링크)</strong></td>
+<td>부활/재접속</td>
+</tr>
+<tr>
+<td>Recall</td>
+<td><strong>Recall (리콜)</strong></td>
+<td>귀환 (그대로 사용, IT 용어)</td>
+</tr>
+<tr>
+<td>Roam</td>
+<td><strong>Roam (로밍)</strong></td>
+<td>다른 서킷으로 이동 (그대로 사용, 네트워크 용어)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="상태-이상-status-effects">4. 상태 이상 (Status Effects)</h2>
+<blockquote>
+<p>상태 이상은 FSM(유한 상태 기계)으로 관리됨</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>MOBA 용어</th>
+<th>PDA 용어</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stun</td>
+<td><strong>Lock (락)</strong></td>
+<td>기절 (조작 불가)</td>
+</tr>
+<tr>
+<td>Slow</td>
+<td><strong>Drag (드래그)</strong></td>
+<td>둔화 (속도 저하)</td>
+</tr>
+<tr>
+<td>Silence</td>
+<td><strong>Jam (잼)</strong></td>
+<td>침묵 (스킬 불가)</td>
+</tr>
+<tr>
+<td>Sleep</td>
+<td><strong>Standby (스탠바이)</strong></td>
+<td>수면 (입력 대기 모드)</td>
+</tr>
+<tr>
+<td>Buff</td>
+<td><strong>Overclock (오버클럭)</strong></td>
+<td>성능 강화 (CPU 오버클럭)</td>
+</tr>
+<tr>
+<td>Debuff</td>
+<td><strong>Throttle (쓰로틀)</strong></td>
+<td>성능 저하 (CPU 쓰로틀링)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="게임-결과-the-end">5. 게임 결과 (The End)</h2>
+<table>
+<thead>
+<tr>
+<th>MOBA 용어</th>
+<th>PDA 용어</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shutdown</td>
+<td><strong>Override (오버라이드)</strong></td>
+<td>연속 처치 중인 적 제압</td>
+</tr>
+<tr>
+<td>Ace</td>
+<td><strong>System Wipe (시스템 와이프)</strong></td>
+<td>적 팀 전멸</td>
+</tr>
+<tr>
+<td>KDA</td>
+<td><strong>D / O / S</strong></td>
+<td>Down / Off / Sync</td>
+</tr>
+<tr>
+<td>Victory (승리)</td>
+<td><strong>Hacked (해킹 성공)</strong></td>
+<td>상대 가디언 해킹 완료</td>
+</tr>
+<tr>
+<td>Defeat (패배)</td>
+<td><strong>Breached (방어선 돌파)</strong></td>
+<td>아군 가디언 해킹 당함</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="유지-용어-unchanged-terms">6. 유지 용어 (Unchanged Terms)</h2>
+<blockquote>
+<p>아래 용어들은 이미 IT/게임 용어로 직관적이거나, 변경 시 진입장벽이
+높아져 그대로 사용합니다.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>용어</th>
+<th>유지 이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skill</td>
+<td>직관성 우선</td>
+</tr>
+<tr>
+<td>Ultimate</td>
+<td>직관성 우선</td>
+</tr>
+<tr>
+<td>Cooldown</td>
+<td>IT 용어 (시스템 쿨다운)</td>
+</tr>
+<tr>
+<td>XP / Level</td>
+<td>직관성 우선</td>
+</tr>
+<tr>
+<td>Team Fight</td>
+<td>직관성 우선</td>
+</tr>
+<tr>
+<td>Object</td>
+<td>IT 용어 (객체)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="제외-용어-excluded-terms">7. 제외 용어 (Excluded Terms)</h2>
+<blockquote>
+<p>PDA에 해당 시스템이 없어 제외된 용어들</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>용어</th>
+<th>제외 이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Minion</td>
+<td>미니언 시스템 없음 (토이 솔져는 오브젝트)</td>
+</tr>
+<tr>
+<td>Gold</td>
+<td>골드 시스템 없음</td>
+</tr>
+<tr>
+<td>Item</td>
+<td>아이템 시스템 없음 (무기 교체만 존재)</td>
+</tr>
+<tr>
+<td>Mana</td>
+<td>마나 시스템 없음</td>
+</tr>
+<tr>
+<td>Ability Power (AP)</td>
+<td>주문력 시스템 없음</td>
+</tr>
+<tr>
+<td>Gank</td>
+<td>정글러 없음</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="스탯-stats">8. 스탯 (Stats)</h2>
+<table>
+<thead>
+<tr>
+<th>MOBA 용어</th>
+<th>PDA 용어</th>
+<th>레벨업</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attack Damage</td>
+<td><strong>Power (파워)</strong></td>
+<td>✓ 상승</td>
+</tr>
+<tr>
+<td>Attack Speed</td>
+<td><strong>Rate (레이트)</strong></td>
+<td>✓ 상승</td>
+</tr>
+<tr>
+<td>Armor / Defense</td>
+<td><strong>Resistance (레지스턴스)</strong></td>
+<td>✓ 상승</td>
+</tr>
+<tr>
+<td>Movement Speed</td>
+<td><strong>Mobility (모빌리티)</strong></td>
+<td>❌ 고정</td>
+</tr>
+<tr>
+<td>HP</td>
+<td><strong>Integrity (무결성)</strong></td>
+<td>❌ 100 고정</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>설계 의도:</strong> 스탯은 플레이어가 자주 보는 정보이므로
+<strong>직관성</strong>을 우선했습니다. 동시에 Power(출력), Rate(전송률),
+Resistance(저항), Mobility(이동성) 모두 디지털/기술 용어이기도 하여
+<strong>세계관과 자연스럽게 양립</strong>합니다.</p>
+</blockquote>
+<hr />
+<h2 id="세계관-일관성">9. 세계관 일관성</h2>
+<p>모든 용어가 <strong>“데이터 / 네트워크 / 해킹”</strong> 테마를
+따름:</p>
+<table>
+<thead>
+<tr>
+<th>영역</th>
+<th>메타포</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>맵</td>
+<td>네트워크 (Network)</td>
+</tr>
+<tr>
+<td>경로</td>
+<td>회로 (Circuit)</td>
+</tr>
+<tr>
+<td>거점</td>
+<td>앵커 (Anchor)</td>
+</tr>
+<tr>
+<td>최종 목표</td>
+<td>가디언 (Guardian)</td>
+</tr>
+<tr>
+<td>은신 지역</td>
+<td>노이즈 (Noise)</td>
+</tr>
+<tr>
+<td>플레이어</td>
+<td>해커 (Hacker)</td>
+</tr>
+<tr>
+<td>체력</td>
+<td>무결성 (Integrity)</td>
+</tr>
+<tr>
+<td>처치</td>
+<td>다운링크 (Downlink)</td>
+</tr>
+<tr>
+<td>사망</td>
+<td>오프라인 (Offline)</td>
+</tr>
+<tr>
+<td>부활</td>
+<td>리링크 (Relink)</td>
+</tr>
+<tr>
+<td>CC기</td>
+<td>시스템 상태 (Lock, Drag, Jam, Standby)</td>
+</tr>
+<tr>
+<td>버프</td>
+<td>오버클럭 (Overclock)</td>
+</tr>
+<tr>
+<td>디버프</td>
+<td>쓰로틀 (Throttle)</td>
+</tr>
+<tr>
+<td>승리</td>
+<td>해킹 성공 (Hacked)</td>
+</tr>
+<tr>
+<td>패배</td>
+<td>방어선 돌파 (Breached)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="용어-설계-원칙">10. 용어 설계 원칙</h2>
+<ol type="1">
+<li><strong>직관성:</strong> 기존 게이머가 유추 가능해야 함</li>
+<li><strong>세계관 일관성:</strong> 모든 용어가 하나의 테마를 공유</li>
+<li><strong>간결함:</strong> 가능한 짧고 발음하기 쉽게</li>
+<li><strong>중복 회피:</strong> 기존 게임과 구별되는 정체성</li>
+</ol>
+<hr />
+<blockquote>
+<p><em>본 용어집은 확정이 아닌 제안입니다. 개발 과정에서 더 나은 대안이
+있다면 언제든 변경될 수 있습니다.</em></p>
+</blockquote>
+
+<hr />
+<h1 id="resource-economy">자원 경제 시스템 (Resource Economy System)</h1>
+
+<h2 id="team-level-system">1. 팀 레벨 시스템</h2>
+<p>PDA에서 레벨은 <strong>개인이 아닌 팀 단위</strong>다.</p>
+<ul>
+<li>노드 점령, 다운링크 등으로 팀 경험치 획득</li>
+<li>팀 전체가 동시에 레벨업</li>
+<li>개인이 "더 가져갈" 수 없음</li>
+</ul>
+
+<p><strong>설계 의도:</strong></p>
+<p>개인 레벨 시스템을 먼저 설계했으나 폐기했다. 이유:</p>
+<ol>
+<li><strong>"캐리" 문제</strong> - 한 명이 레벨 높으면 그 사람만 싸우고 나머지는 구경</li>
+<li><strong>기여 형태 제한</strong> - 다운링크/데미지만 가치 있음</li>
+</ol>
+<p>단, 개인 캐리 자체를 막지는 않는다. <strong>솔로 다운링크의 가치는 높게 설계</strong>되어 있다. 다만 그 보상을 <strong>팀 전체가 동일하게</strong> 받는다.</p>
+<p>이것은 스노볼 억제가 <strong>지나치게</strong> 작용하는 것을 방지하는 수단이기도 하다. 개인 플레이어의 압도적 퍼포먼스는 인정하되, 그 결과물은 팀 자원으로 환원된다.</p>
+<p>팀 레벨로 전환 시:</p>
+<ul>
+<li>서포터가 와딩해도 팀 레벨 상승</li>
+<li>탱커가 맞아줘도 팀 레벨 상승</li>
+<li><strong>기여의 형태가 다양해진다</strong></li>
+</ul>
+
+<hr />
+<h2 id="weapon-level-sunk-cost">2. 무기 레벨 시스템과 매몰비용</h2>
+
+<h3>2.1 기본 구조</h3>
+<ul>
+<li>팀 레벨 상승 시 <strong>무기 레벨업 포인트</strong> 획득</li>
+<li>포인트를 <strong>현재 장착 무기</strong>에 투자</li>
+<li>투자한 레벨은 <strong>해당 무기에 귀속</strong></li>
+</ul>
+
+<h3>2.2 매몰비용(Sunk Cost) 구조</h3>
+<p>예시 상황 (해커: 별):</p>
+<pre><code>Stellar Staff에 레벨 5 투자 (원거리 후방 포지션)
+→ 게임 중반, 상대 팀 구성상 Astral Blade(근접 돌입)가 더 유리함을 인식
+→ 베이스에서 무기 교체 가능
+→ 문제: Stellar Staff 레벨 5는?
+→ 사라짐 (또는 대폭 감소)</code></pre>
+<p>이것이 <strong>매몰비용(Sunk Cost)</strong>이다.</p>
+
+<p><strong>설계 의도:</strong></p>
+<p>레벨이 유지되면 무기 교체가 <strong>공짜</strong>다. 공짜면 <strong>고민이 없다</strong>.</p>
+<p>매몰비용이 있으면:</p>
+<ul>
+<li>"Staff 레벨 5 버리고 Blade 레벨 1로 갈까?"</li>
+<li>"아니면 Staff로 버틸까?"</li>
+</ul>
+<p><strong>이 고민 자체가 게임이다.</strong> 정답이 있으면 게임이 아니다. 트레이드오프가 있어야 게임이다.</p>
+
+<h3>2.3 매몰비용 오류를 통한 스노볼 억제</h3>
+<p>인간은 매몰비용을 무시하지 못한다:</p>
+<table>
+<thead>
+<tr><th>팀 상태</th><th>투자량</th><th>매몰비용</th><th>전환 용이성</th></tr>
+</thead>
+<tbody>
+<tr><td>이기는 팀</td><td>많음</td><td>큼</td><td><strong>어려움</strong></td></tr>
+<tr><td>지는 팀</td><td>적음</td><td>작음</td><td><strong>쉬움</strong></td></tr>
+</tbody>
+</table>
+<p><strong>결과:</strong></p>
+<ul>
+<li>이기는 팀: 매몰비용 함정에 갇힘 → 경직</li>
+<li>지는 팀: 자유로운 전환 가능 → 유연</li>
+</ul>
+<p><strong>→ 심리를 통한 스노볼 억제 메커니즘</strong></p>
+
+<hr />
+<h2 id="weapon-selection-opportunity-cost">3. 무기 선택과 기회비용</h2>
+
+<h3>3.1 선택 제약</h3>
+<ul>
+<li>무기는 <strong>베이스에서만</strong> 교체 가능</li>
+<li>전투 중 교체 불가</li>
+<li>따라서 무기 선택은 <strong>사전 의사결정</strong></li>
+</ul>
+
+<h3>3.2 삼중 비용 구조</h3>
+<p>무기 교체 시 세 가지 비용이 <strong>동시에</strong> 작용:</p>
+<table>
+<thead>
+<tr><th>비용 유형</th><th>PDA에서의 형태</th><th>심리적 영향</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>매몰비용</strong></td><td>무기 레벨 투자</td><td>교체 저항</td></tr>
+<tr><td><strong>기회비용</strong></td><td>선택하지 않은 무기의 잠재력</td><td>후회 가능성</td></tr>
+<tr><td><strong>전환비용</strong></td><td>베이스 귀환 시간</td><td>전장 부재</td></tr>
+</tbody>
+</table>
+
+<h3>3.3 비용 간 상호작용</h3>
+<pre><code>매몰비용 ↑ → 전환비용 체감 ↑ → 교체 확률 ↓
+기회비용 ↑ → 교체 유인 ↑ → 매몰비용과 충돌
+전환비용 ↑ → 교체/귀환 저항 ↑ → Integrity 낮은 채 전투</code></pre>
+
+<hr />
+<h2 id="integrity-recovery-base-cost">4. Integrity 회복 제한과 베이스 비용</h2>
+
+<h3>4.1 Integrity 회복 시스템</h3>
+<ul>
+<li>전투 중 자연 회복: <strong>없음</strong> (또는 극히 제한)</li>
+<li>베이스 귀환: 회복됨, 그러나 <strong>시간 비용</strong></li>
+</ul>
+<p><strong>이중 비용 구조:</strong></p>
+<ol>
+<li>Integrity 손실 = 전투력 감소 (즉각적 비용)</li>
+<li>베이스 귀환 = 전장 부재 (기회비용)</li>
+</ol>
+
+<h3>4.2 복합 의사결정 매트릭스</h3>
+<p>상황: Integrity 40%, Stellar Staff 레벨 7</p>
+<table>
+<thead>
+<tr><th>선택지</th><th>리스크</th><th>리턴</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>유지</strong></td><td>오프라인 시 더 큰 손실</td><td>전장 유지, 노드 경쟁</td></tr>
+<tr><td><strong>귀환 (무기 유지)</strong></td><td>전장 부재 시간</td><td>Integrity 100% 복귀</td></tr>
+<tr><td><strong>귀환 (Blade 교체)</strong></td><td>레벨 7 매몰 + 전장 부재</td><td>Integrity 100% + 상성 유리</td></tr>
+</tbody>
+</table>
+
+<h3>4.3 베이스의 다목적 기능</h3>
+<p>베이스에서 가능한 것:</p>
+<ul>
+<li>Integrity 회복</li>
+<li>무기 교체</li>
+<li>레벨 재배분 (부분적)</li>
+</ul>
+<p><strong>설계 의도:</strong></p>
+<p>하나만 있으면 선택이 단순하다. "Integrity 없으면 가고, 있으면 안 가고."</p>
+<p>여러 개 있으면 <strong>복합 판단</strong>이 된다:</p>
+<ul>
+<li>"Integrity는 괜찮은데 무기 바꾸러 갈까?"</li>
+<li>"Integrity도 없고 무기도 바꿔야 하는데, 지금 가면 팀이 3v4 되는데?"</li>
+</ul>
+<p><strong>→ 모든 결정이 연결된다.</strong></p>
+
+<hr />
+<h2 id="decision-tree-explosion">5. 의사결정 트리의 폭발</h2>
+
+<h3>5.1 규칙의 단순성</h3>
+<pre><code>1. 베이스에서 무기 교체 가능
+2. 레벨은 무기에 귀속
+3. 팀 레벨은 공유</code></pre>
+<p><strong>3줄이다.</strong></p>
+
+<h3>5.2 경우의 수의 복잡성</h3>
+<p>4인 팀 전체:</p>
+<pre><code>(무기 선택 × 레벨 배분 × 교체 타이밍)^4 = 계산 불가</code></pre>
+<p><strong>비유:</strong> 체스 규칙도 단순하다. 경우의 수는 10<sup>120</sup>이다.</p>
+<p><strong>→ 단순한 규칙, 무한한 깊이.</strong></p>
+
+<hr />
+<h2 id="mathematical-modeling-economy">6. 수학적 모델링</h2>
+
+<h3>6.1 교체 의사결정 함수</h3>
+<p><span class="math display">\[U_{switch} = V(weapon_{new}) - C_{sunk}(level_{current}) - C_{transition}(t_{base})\]</span></p>
+<p><span class="math display">\[U_{keep} = V(weapon_{current}, level_{current}) - Risk(Integrity_{low})\]</span></p>
+<p><span class="math display">\[Decision = \arg\max\{U_{switch}, U_{keep}\}\]</span></p>
+
+<h3>6.2 일반해의 부재</h3>
+<p>V, C, Risk 모두 <strong>상황 의존적</strong>:</p>
+<ul>
+<li>상대 팀 구성</li>
+<li>남은 시간</li>
+<li>팀원 상태</li>
+<li>노드 상황</li>
+</ul>
+<p><strong>→ 일반해 없음. 매 순간 계산 필요.</strong></p>
+
+<p><strong>설계 의도:</strong></p>
+<p>"이 상황에서 뭐가 정답이야?"에 대한 답:</p>
+<p><strong>"그때그때 달라요."</strong></p>
+<p>정답이 있으면 <strong>퍼즐</strong>이다. PDA는 <strong>게임</strong>이다.</p>
+<p>같은 상황이 두 번 와도 다른 선택이 최적일 수 있다. 이게 <strong>깊이</strong>다.</p>
+
+<hr />
+<h1 id="failure-cost-resistance">채널링 실패와 방어력의 재정의</h1>
+
+<blockquote>
+<p><strong>저자 주:</strong></p>
+<p>해킹 채널링의 중요한 요소 중 하나인 <strong>후딜레이(Delay)</strong>가 기존 모델에서 빠져 있었다. 최종 검토 중 이를 발견하고 가이드라인 정도는 제시해야 할 것 같아서 정리하던 중, 갑자기 유레카가 터졌다.</p>
+<p><em>"이거, 사실 방어력에 연관된 함수 아닌가?"</em></p>
+<p>기존 모델에서 방어력(\(R\))은 의도적으로 제외되었다 (Q2 참조). 그 결정은 틀리지 않았다—<strong>채널링 성공 과정</strong>에서는 방어력이 개입하면 메타가 고착된다.</p>
+<p>그러나 <strong>채널링 실패 후</strong>의 상황은 다르다. 후딜레이 동안 보호막은 이미 0이다. 이때 생존 여부를 결정하는 것은 오직 방어력뿐이다.</p>
+<p>사고 과정을 남기기 위해 Q&A의 "방어력은 제외하였다"는 삭제하지 않고 그대로 둔다. 구현하시는 분들께 이 발견 과정이 도움이 되길 바란다.</p>
+</blockquote>
+
+<hr />
+<h2 id="combat-stats">1. 전투 스탯 정의</h2>
+
+<h3>1.1 확정 변수</h3>
+<table>
+<thead>
+<tr><th>기호</th><th>이름</th><th>정의</th><th>단위</th></tr>
+</thead>
+<tbody>
+<tr><td>\(P\)</td><td>공격력 (Power)</td><td>평타 1회당 피해량</td><td>HP (절대값)</td></tr>
+<tr><td>\(S\)</td><td>보호막 (Shield)</td><td>채널링 중 흡수 가능량</td><td>HP</td></tr>
+<tr><td>\(I\)</td><td>Integrity</td><td>현재 체력 (기준값 100)</td><td>HP</td></tr>
+</tbody>
+</table>
+
+<h3>1.2 미정 변수</h3>
+<table>
+<thead>
+<tr><th>기호</th><th>이름</th><th>정의</th><th>비고</th></tr>
+</thead>
+<tbody>
+<tr><td>\(R\)</td><td>방어력 (Resistance)</td><td>피해 감소율</td><td>% 단위 (0~100)</td></tr>
+</tbody>
+</table>
+
+<blockquote>
+<p><strong>Note:</strong> 방어력(\(R\))은 "피해를 덜 받는다"는 직관적 의미는 있으나, 게임 메커니즘 내에서의 <strong>전략적 역할</strong>은 아직 명확히 정의되지 않았다. 기존 모델에서는 의도적으로 제외되었다 (Q2 참조).</p>
+</blockquote>
+
+<h3>1.3 피해 계산</h3>
+<p>방어력 적용 시:</p>
+<p><span class="math display">\[\text{실제 피해} = \text{원본 피해} \times (1 - R)\]</span></p>
+<p>예시:</p>
+<ul>
+<li>\(R = 10\%\): 피해의 90%를 받음</li>
+<li>\(R = 40\%\): 피해의 60%만 받음</li>
+</ul>
+
+<hr />
+<h2 id="channeling-failure">2. 채널링 실패와 후딜레이</h2>
+
+<h3>2.1 후딜레이 정의</h3>
+<table>
+<thead>
+<tr><th>기호</th><th>이름</th><th>정의</th><th>단위</th></tr>
+</thead>
+<tbody>
+<tr><td>\(t_d\)</td><td>후딜레이 (Delay)</td><td>채널링 실패/취소 후 무방비 시간</td><td>초</td></tr>
+</tbody>
+</table>
+
+<h3>2.2 설계 원칙</h3>
+<p>후딜레이는 <strong>게임 템포를 결정하는 핵심 변수 중 하나</strong>다.</p>
+<blockquote>
+<p><strong>핵심:</strong> 후딜레이는 고정값이어야 한다. 변동하면 유저가 비용을 계산할 수 없다.</p>
+</blockquote>
+<p>개발팀 워크플로우 (상세 내용은 "개발팀을 위한 가이드" 참조):</p>
+<ul>
+<li><strong>Top-down:</strong> 게임 템포 설계 시 \(T^*\), \(t_d\)를 먼저 결정하고 나머지를 역산</li>
+<li><strong>Bottom-up:</strong> 개별 챔피언 추가 시 \(v\), \(r\)을 먼저 결정하고 순차 도출 (\(T^*\)는 이미 결정됨)</li>
+</ul>
+
+<h3>2.3 후딜레이 중 상태</h3>
+<p>채널링이 중단되면:</p>
+<ul>
+<li>보호막(\(S\)): 이미 0 (소진 또는 무효)</li>
+<li>Integrity(\(I\)): 현재값 유지</li>
+<li>행동: <strong>불가</strong> (무방비 상태)</li>
+</ul>
+<p>이 시간 동안 적의 집중 화력에 노출된다.</p>
+
+<h3>2.4 예상 피해량</h3>
+<p>후딜레이 동안 받는 피해:</p>
+<p><span class="math display">\[D_{delay} = t_d \times \overline{DPS}\]</span></p>
+<p>여기서 \(\overline{DPS}\)는 적의 평균 초당 화력이다.</p>
+
+<p><strong>잠깐.</strong></p>
+<p>이 상황에서 보호막(\(S\))은 이미 0이다. Integrity(\(I\))만 남았다.</p>
+<p><strong>그렇다면 방어력(\(R\))은?</strong></p>
+
+<hr />
+<h2 id="resistance-rediscovery">3. 방어력의 재발견: 실패 비용 함수</h2>
+
+<h3>3.1 발견</h3>
+<p>Section 7에서 "역할 미정"으로 남겨뒀던 방어력(\(R\))의 의미가 여기서 드러난다.</p>
+<p>채널링 실패 시:</p>
+<ul>
+<li>보호막(\(S\)) = 0 (이미 소진)</li>
+<li>행동 불가 (후딜레이 \(t_d\) 동안)</li>
+<li><strong>\(R\)이 유일한 피해 감소 수단</strong></li>
+</ul>
+
+<h3>3.2 실패 비용 함수</h3>
+<p><span class="math display">\[D_{fail} = t_d \times \overline{DPS} \times (1 - R)\]</span></p>
+<p>다운 확률:</p>
+<p><span class="math display">\[P_{down} = \min\left(1, \frac{D_{fail}}{I}\right) = \min\left(1, \frac{t_d \times \overline{DPS} \times (1-R)}{I}\right)\]</span></p>
+<blockquote>
+<p><strong>Note:</strong> \(P_{down}\)은 실제 "확률"이 아니라 <strong>위험도 지표(Risk Index)</strong>다. 결정론적 게임에서 \(D_{fail} < I\)이면 다운되지 않고 체력만 감소하지만, 이 값이 1에 가까울수록 "실패 시 치명적"임을 의미한다.</p>
+</blockquote>
+
+<h3>3.3 역할의 분리</h3>
+<table>
+<thead>
+<tr><th>스탯</th><th>수식 내 위치</th><th>역할</th><th>비유</th></tr>
+</thead>
+<tbody>
+<tr><td>\(S\) (보호막)</td><td>채널링 유지 조건</td><td>성공 확률 ↑</td><td><strong>입장권</strong> (채널링을 유지하게 해줌)</td></tr>
+<tr><td>\(R\) (방어력)</td><td>\(D_{fail}\) 감소</td><td>실패 비용 ↓</td><td><strong>보험</strong> (실패해도 안 죽게 해줌)</td></tr>
+<tr><td>\(I\) (Integrity)</td><td>\(P_{down}\) 분모</td><td>생존 마진</td><td><strong>버퍼</strong></td></tr>
+</tbody>
+</table>
+
+<h3>3.4 역할별 플레이 스타일</h3>
+
+<h4>A. 탱커 (San) - "보험 빵빵함"</h4>
+<ul>
+<li>특징: \(R\) 높음 (40%+), \(S\) 높음, \(v\) 낮음</li>
+<li>수식: \(D_{fail}\) 값이 작음</li>
+<li>스타일: <em>"실패해도 안 죽어. 과감하게 들어갈게."</em></li>
+</ul>
+
+<h4>B. 암살자 (Bam) - "보험 없음"</h4>
+<ul>
+<li>특징: \(R\) 낮음 (10%), \(S\) 낮음, \(v\) 높음</li>
+<li>수식: \(D_{fail}\) 값이 매우 큼 (맞으면 다운)</li>
+<li>스타일: <em>"끊기면 끝장. 무조건 성공시키거나, 안 들켜야 해."</em></li>
+</ul>
+
+<h3>3.5 상관관계 다이어그램</h3>
+<p>이동속도(\(v\)), 보호막(\(S\)), 방어력(\(R\))의 관계:</p>
+<pre><code>            [역할 설계]
+                 ↓
+         v (이동속도) ←── 기준 변수
+             ↓               ↓
+        k_champ 공식      역할 특성
+             ↓               ↓
+        S (보호막)        R (방어력)
+             ↘             ↙
+           [양의 상관관계]
+            (결과적으로)
+</code></pre>
+
+<p><strong>핵심 관계:</strong></p>
+<ul>
+<li>\(v\)와 \(S\): <strong>역비례</strong> (k_champ 공식: \(k = \bar{v}/v_{new}\))</li>
+<li>\(v\)와 \(R\): <strong>역비례</strong> (역할 설계상)</li>
+<li>결과적으로 \(S\)와 \(R\): <strong>양의 상관관계를 지향</strong></li>
+</ul>
+
+<blockquote>
+<p><strong>주의:</strong> 이것은 하드코딩된 공식이 아니라 <strong>밸런싱 가이드라인</strong>이다. \(S\)와 \(R\)이 직접 연결되는 것이 아니라, \(v\)를 매개로 한 간접 관계다.</p>
+</blockquote>
+
+<h3>3.6 설계 근거: 왜 탱커는 보호막도 높은가?</h3>
+<p>표면적으로는 "방어력이 높으니까 보호막은 낮아도 되지 않나?"라고 생각할 수 있다.</p>
+<p>그러나:</p>
+<ol>
+<li>탱커는 이동속도(\(v\))가 낮다.</li>
+<li>이동속도가 낮으면 해킹 시도 빈도(Frequency)가 적다.</li>
+<li>어렵게 잡은 기회이므로, 보호막을 높여서 성공 확률을 보장해야 한다.</li>
+</ol>
+<p><strong>만약 탱커의 보호막이 낮다면?</strong></p>
+<ul>
+<li>느려서 잘 못 감</li>
+<li>도착해서 해킹 눌렀는데 평타 몇 대 맞고 끊김</li>
+<li>방어력 높아서 안 죽음</li>
+<li><strong>결론: 안 죽는데 해킹도 못 하는 샌드백</strong></li>
+</ul>
+<p>탱커가 위협적이려면:</p>
+<blockquote>
+<p><em>"쟤는 느려서 잘 안 오지만, 일단 붙어서 해킹을 시작하면 떼어내기가(보호막 까기가) 정말 힘들다"</em></p>
+</blockquote>
+<p>이 공포가 있어야 한다.</p>
+
+<h3>3.7 밸런스 삼각관계 요약</h3>
+<table>
+<thead>
+<tr><th>유형</th><th>\(v\) (빈도)</th><th>\(S\) (성공률)</th><th>\(R\) (생존)</th><th>플레이 스타일</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>암살자</strong></td><td>High</td><td>Low</td><td>Low</td><td>자주 찌르고, 들키면 죽는다</td></tr>
+<tr><td><strong>탱커</strong></td><td>Low</td><td>High</td><td>High</td><td>가끔 오지만, 오면 못 막는다</td></tr>
+<tr><td><strong>밸런스</strong></td><td>Mid</td><td>Mid</td><td>Mid</td><td>상황에 따라 유연하게</td></tr>
+</tbody>
+</table>
+
+<hr />
+<h1 id="cc-quantification">시스템 상태의 정량화: 등가 DPS 모델</h1>
+
+<blockquote>
+<p><strong>저자 주:</strong></p>
+<p>테크니컬 문서를 마무리한 후, 한 가지 빠진 요소가 있음을 깨달았다. <strong>시스템 상태(CC)</strong>다.</p>
+<p>Lock, Drag, Jam, Standby 같은 행동 방해 스킬들은 어떻게 방정식에 편입시킬 것인가? 고민하던 중, 핵심을 깨달았다.</p>
+<p><em>"하드 CC는 채널링을 즉시 취소시키고 보호막을 0으로 만든다. 이건 사실상 '남은 보호막 전체를 즉시 깎는 것'과 동일하다."</em></p>
+</blockquote>
+
+<hr />
+<h2 id="cc-definition">1. 시스템 상태(CC)의 정의</h2>
+
+<p>PDA에서 시스템 상태는 <strong>두 가지 범주</strong>로 나뉜다:</p>
+
+<h3>1.1 하드 CC (채널링 즉시 취소)</h3>
+<table>
+<thead>
+<tr><th>상태</th><th>효과</th><th>채널링</th><th>예시</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Lock</strong> (경직)</td><td>모든 행동 불가</td><td><strong>즉시 취소, S→0</strong></td><td>락의 Direct Hit</td></tr>
+<tr><td><strong>Standby</strong> (수면)</td><td>피격 전까지 행동 불가</td><td><strong>즉시 취소, S→0</strong></td><td>소리의 Lullaby</td></tr>
+</tbody>
+</table>
+
+<h3>1.2 소프트 CC (채널링 유지)</h3>
+<table>
+<thead>
+<tr><th>상태</th><th>효과</th><th>채널링</th><th>예시</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Drag</strong> (둔화)</td><td>이동속도 감소</td><td>유지</td><td>바다의 Hydro Field</td></tr>
+<tr><td><strong>Jam</strong> (방해)</td><td>스킬 사용 불가</td><td>유지 (평타는 가능)</td><td>락의 Sound Wave</td></tr>
+</tbody>
+</table>
+
+<blockquote>
+<p><strong>핵심 차이:</strong> 하드 CC는 채널링을 <strong>즉시 취소</strong>하고 보호막을 <strong>0으로 만든다</strong>. 소프트 CC는 행동만 제한하고 채널링은 유지된다.</p>
+</blockquote>
+
+<hr />
+<h2 id="cc-equivalent-dps">2. 등가 DPS 공식</h2>
+
+<h3>2.1 하드 CC의 등가 가치</h3>
+<p>하드 CC가 채널링 중인 적에게 적중하면:</p>
+<ul>
+<li>채널링 즉시 취소</li>
+<li>보호막 \(S\) → 0</li>
+<li><strong>남은 보호막이 얼마든, 전부 무효화</strong></li>
+<li><strong>+ 지속시간 동안 행동 불가</strong></li>
+</ul>
+
+<p>따라서 하드 CC 1회의 등가 가치는 <strong>두 효과의 합</strong>이다:</p>
+<p><span class="math display">\[\text{Value}_{hard} = \underbrace{\frac{S}{2}}_{\text{보호막 무효화}} + \underbrace{t_{cc} \times \overline{DPS}_{team} \times k_{effect}}_{\text{지속시간 동안 추가 피해}}\]</span></p>
+
+<p>평균적으로 보호막이 절반 남았을 때 적중한다고 가정하면, 하드 CC 1회 = <strong>\(S/2\) + 지속시간 효과</strong>와 등가다.</p>
+
+<blockquote>
+<p><strong>왜 이렇게 복잡한 제약이 붙는가?</strong></p>
+<ul>
+<li><strong>소프트 CC:</strong> 지속시간 효과만 → 단일 항</li>
+<li><strong>하드 CC:</strong> 보호막 무효화 + 지속시간 효과 → <strong>두 효과를 동시에 가짐</strong></li>
+</ul>
+<p>즉, 하드 CC는 <strong>"두 가지 스킬을 한 번에 쓰는 것"</strong>과 같다. 그래서 제약도 두 배로 걸어야 공평하다.</p>
+</blockquote>
+
+<h3>2.2 소프트 CC의 등가 가치</h3>
+<p>소프트 CC는 채널링을 취소하지 않으므로, <strong>그 시간 동안 팀이 추가로 가할 수 있는 피해</strong>로 환산한다:</p>
+
+<p><span class="math display">\[\text{Value}_{soft} = t_{cc} \times \overline{DPS}_{team} \times k_{effect}\]</span></p>
+
+<table>
+<thead>
+<tr><th>기호</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>\(t_{cc}\)</td><td>상태 지속 시간 (초)</td></tr>
+<tr><td>\(\overline{DPS}_{team}\)</td><td>팀 평균 DPS (Integrity/초)</td></tr>
+<tr><td>\(k_{effect}\)</td><td>효과 강도 계수 (0~1)</td></tr>
+</tbody>
+</table>
+
+<h3>2.3 효과 강도 계수</h3>
+<p><em>(예시 수치 — 실제 값은 플레이 테스트로 결정)</em></p>
+<ul>
+<li>Drag 30% → \(k \approx 0.3\)</li>
+<li>Drag 50% → \(k \approx 0.5\)</li>
+<li>Jam (스킬 봉인) → \(k \approx 0.3\)</li>
+</ul>
+
+<hr />
+<h2 id="cc-balance-application">3. 밸런싱 적용</h2>
+
+<h3>3.1 예시 계산</h3>
+<blockquote>
+<p><strong>주의:</strong> 아래 모든 수치는 예시일 뿐입니다. 실제 값은 플레이 테스트로 결정되어야 합니다.</p>
+</blockquote>
+<p>가정:</p>
+<ul>
+<li>기준 보호막 \(S = 50\) Integrity</li>
+<li>팀 평균 DPS = 10 Integrity/초</li>
+</ul>
+
+<p><strong>락의 Lock (하드 CC, 1.5초):</strong></p>
+<p><span class="math display">\[\text{Value} = \frac{S}{2} + t_{cc} \times \overline{DPS} \times k = \frac{50}{2} + 1.5 \times 10 \times 1.0 = 25 + 15 = 40 \text{ Integrity}\]</span></p>
+
+<p><strong>바다의 Drag (소프트 CC, 2초, 50%):</strong></p>
+<p><span class="math display">\[\text{Value} = 2 \times 10 \times 0.5 = 10 \text{ Integrity}\]</span></p>
+
+<blockquote>
+<p><strong>결론:</strong> 하드 CC 1회는 소프트 CC 여러 회에 해당하는 가치를 가진다. 따라서 하드 CC는 <strong>긴 쿨다운</strong>으로 제약해야 한다.</p>
+</blockquote>
+
+<h3>3.2 역할별 CC 예산</h3>
+<p><em>(예시 수치 — 실제 값은 플레이 테스트로 결정)</em></p>
+<table>
+<thead>
+<tr><th>역할</th><th>순수 DPS</th><th>CC 등가</th><th>CC 유형</th></tr>
+</thead>
+<tbody>
+<tr><td>순수 딜러 (별)</td><td>10</td><td>0</td><td>없음</td></tr>
+<tr><td>하드 CC (락)</td><td>5</td><td>5 (하드)</td><td>Lock</td></tr>
+<tr><td>소프트 CC (바다)</td><td>7</td><td>3 (소프트)</td><td>Drag</td></tr>
+<tr><td>서포터 (소리)</td><td>3</td><td>7 (하드)</td><td>Standby</td></tr>
+</tbody>
+</table>
+
+<p>하드 CC를 가진 해커는 순수 DPS가 낮아야 균형이 맞는다.</p>
+
+<hr />
+<h1 id="mmr-human-error">매치메이킹 시스템: 휴먼 에러 보정</h1>
+<h2 id="mmr-philosophy">1. 핵심 철학</h2>
+<blockquote>
+<p><strong>휴먼 에러는 제거 대상이 아니라, 시스템 변수다.</strong></p>
+<p>밸런스 패치가 아니라, 매칭으로 해결한다.</p>
+</blockquote>
+
+<h2 id="mmr-variables">2. 변수 정의</h2>
+<table>
+<thead>
+<tr><th>변수</th><th>이름</th><th>정의</th></tr>
+</thead>
+<tbody>
+<tr><td>\(P\)</td><td>퍼포먼스 점수</td><td>해당 판의 종합 기여도</td></tr>
+<tr><td>\(\bar{P}\)</td><td>기대 퍼포먼스</td><td>해당 MMR 구간의 평균 \(P\)</td></tr>
+<tr><td>\(\sigma\)</td><td>일관성 지표</td><td>최근 N판 \(P\)의 표준편차</td></tr>
+<tr><td>\(\bar{\sigma}\)</td><td>티어 평균 분산</td><td>해당 티어의 평균 \(\sigma\)</td></tr>
+</tbody>
+</table>
+
+<h2 id="mmr-performance">3. 퍼포먼스 점수 \(P\)</h2>
+<p><span class="math display">\[ P = \sum_i w_i \cdot x_i \]</span></p>
+<table>
+<thead>
+<tr><th>지표 (\(x_i\))</th><th>로그 출처</th></tr>
+</thead>
+<tbody>
+<tr><td>해킹 성공률</td><td>해킹 시작/취소/성공</td></tr>
+<tr><td>팀 기여도</td><td>점유, 브레이커, 가디언 참여</td></tr>
+<tr><td>생존율</td><td>다운 시점, 리스폰</td></tr>
+<tr><td>팀 동조율</td><td>핑 발생/수락/무시</td></tr>
+</tbody>
+</table>
+<p>가중치 \(w_i\)는 역할별로 다르게 설정 가능.</p>
+
+<h2 id="mmr-acceleration">4. 두 개의 가속 항</h2>
+<h3>4.1 괴리도 \(\Phi\)</h3>
+<p><span class="math display">\[ \Phi = \frac{|P - \bar{P}|}{\bar{P}} \]</span></p>
+<p><strong>현재 위치가 얼마나 잘못됐는가</strong></p>
+<table>
+<thead>
+<tr><th>상황</th><th>\(\Phi\)</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>스머프</td><td>↑↑</td><td>기대보다 훨씬 잘함</td></tr>
+<tr><td>트롤/부스팅</td><td>↑↑</td><td>기대보다 훨씬 못함</td></tr>
+<tr><td>적정 위치</td><td>≈ 0</td><td>기대만큼 함</td></tr>
+</tbody>
+</table>
+
+<h3>4.2 불안정도 \(\Sigma\)</h3>
+<p><span class="math display">\[ \Sigma = \frac{\sigma}{\bar{\sigma}} \]</span></p>
+<p><strong>얼마나 들쭉날쭉한가</strong></p>
+<table>
+<thead>
+<tr><th>상황</th><th>\(\Sigma\)</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>컨디션 기복</td><td>> 1</td><td>티어 평균보다 불안정</td></tr>
+<tr><td>일관된 플레이</td><td>< 1</td><td>티어 평균보다 안정적</td></tr>
+<tr><td>평균</td><td>= 1</td><td>티어 기준</td></tr>
+</tbody>
+</table>
+
+<h2 id="mmr-formula">5. MMR 가속도 공식</h2>
+<p><span class="math display">\[ \Delta MMR_{final} = \Delta MMR_{base} \times (1 + \lambda_1 \cdot \Phi + \lambda_2 \cdot \Sigma) \]</span></p>
+<table>
+<thead>
+<tr><th>항</th><th>역할</th></tr>
+</thead>
+<tbody>
+<tr><td>\(\Delta MMR_{base}\)</td><td>승패 기본 변동 (예: ±20)</td></tr>
+<tr><td>\(\lambda_1 \cdot \Phi\)</td><td>괴리도 가속 (스머프/트롤 감지)</td></tr>
+<tr><td>\(\lambda_2 \cdot \Sigma\)</td><td>불안정도 가속 (빠른 수렴)</td></tr>
+</tbody>
+</table>
+
+<h2 id="mmr-examples">6. 작동 예시</h2>
+<table>
+<thead>
+<tr><th>플레이어</th><th>\(\Phi\)</th><th>\(\Sigma\)</th><th>결과</th></tr>
+</thead>
+<tbody>
+<tr><td>스머프 (압도)</td><td>↑↑</td><td>-</td><td>승리 시 <strong>폭등</strong></td></tr>
+<tr><td>트롤 (고의 패배)</td><td>↑↑</td><td>-</td><td>패배 시 <strong>폭락</strong></td></tr>
+<tr><td>컨디션 롤러코스터</td><td>-</td><td>↑↑</td><td>변동폭 <strong>확대</strong></td></tr>
+<tr><td>꾸준한 실력자</td><td>↓</td><td>↓</td><td>변동폭 <strong>축소</strong></td></tr>
+</tbody>
+</table>
+
+<h2 id="mmr-convergence">7. 수렴 메커니즘</h2>
+<p>적정 위치에 도달하면:</p>
+<ol>
+<li>\(P \approx \bar{P}\) → \(\Phi \to 0\)</li>
+<li>\(\sigma \approx \bar{\sigma}\) → \(\Sigma \to 1\)</li>
+<li>\(\Delta MMR_{final} \to \Delta MMR_{base}\) (가속도 소멸)</li>
+</ol>
+<p><strong>결과: 자동 안착</strong></p>
+
+<h2 id="mmr-matching">8. 매칭 적용</h2>
+<p>\(\sigma\)를 매칭에도 사용:</p>
+<blockquote>
+<p>\(\sigma\) 비슷한 플레이어끼리 매칭</p>
+<p>\(\sigma\) 낮음 vs \(\sigma\) 낮음 = 정석 대결</p>
+<p>\(\sigma\) 높음 vs \(\sigma\) 높음 = 혼돈의 카오스</p>
+</blockquote>
+<p><strong>플레이 스타일 매칭</strong></p>
+
+<h2 id="mmr-summary">9. 요약</h2>
+<p><span class="math display">\[ \boxed{\text{휴먼 에러 = 밸런스 변수 ❌ \quad 휴먼 에러 = 매칭 변수 ⭕}} \]</span></p>
+<ul>
+<li>\(\Phi\) (괴리도) → 잘못된 위치 감지 → 빠른 이동</li>
+<li>\(\Sigma\) (불안정도) → 수렴 안 됨 감지 → 빠른 탐색</li>
+<li>\(\sigma\) (일관성) → 플레이 스타일 → 매칭 분리</li>
+</ul>
+
+<hr />
+<h2 id="qa">예상 질문 & 답변 (Q&A)</h2>
+<p><em>본 문서의 수학적 모델링에 대해 제기될 수 있는 학술적 질문들과, 그에 대한 설계 의도를 정리합니다.</em></p>
+
+<h3>Q1. 반응-확산 방정식에서 정상 상태(Steady State)를 가정한 것은 물리적으로 엄밀하지 않은 것 아닌가요?</h3>
+<p><strong>A:</strong> 의도적인 설계입니다.</p>
+<p>만약 과도 응답(Transient Response)을 서버에서 실시간으로 계산하려면, 매 틱(Tick)마다 수치 해석(Numerical Analysis)을 돌려야 합니다. 8명의 플레이어와 여러 노드를 처리하면 CPU 부하가 폭발합니다.</p>
+<p>정상 상태를 가정함으로써 복잡한 미분방정식을 <strong>단순한 대수 방정식 \(T^* = \alpha t + \gamma w\)</strong>으로 치환했습니다. 서버는 <strong>\(O(1)\)</strong>의 비용으로 즉시 채널링 시간을 계산할 수 있습니다.</p>
+<p>또한, 채널링 시간은 변칙적인 값이 아니라 <strong>맵 구조, 챔피언 기본 변수, 노드의 가치와 위치에 의해 미리 정해지는 '상수값'</strong>이어야 합니다. 플레이어가 예측 가능한 전략을 세우려면 채널링 시간이 고정되어 있어야 하기 때문입니다. 이 설계 철학이 정상 상태 가정을 더욱 정당화합니다.</p>
+<p><strong>결론:</strong> 이것은 '수학적 비약'이 아니라 <strong>'공학적 압축(Engineering Optimization)'</strong>입니다.</p>
+
+<h3>Q2. 란체스터 제곱 법칙을 사용하면서, 채널러 보호막은 선형 DPS로 계산하는 것이 모순 아닌가요? 또한 방어력은 왜 제외했나요?</h3>
+<p><strong>A:</strong> 모순이 아니라 의도적인 분리입니다.</p>
+<ul>
+<li><strong>전선 교전 ((A-1) vs B):</strong> 서로 공격하므로 → 제곱 법칙</li>
+<li><strong>채널러 공방:</strong> 일방적으로 맞기만 하므로 → 선형 법칙 (DPS 누적)</li>
+</ul>
+<p>방어력을 제외한 것도 의도적입니다. 방어력이 보호막(S)에 반영되면, <strong>탱커만 해킹을 담당하게 됩니다(Meta Fixation)</strong>. 모든 포지션이 상황에 따라 해커가 될 수 있는 <strong>'전략적 유동성'</strong>을 위해 방어력 변수를 소거했습니다.</p>
+<p><strong>결론:</strong> 수학적 단순화가 아니라, <strong>메타 고착화 방지를 위한 게임 디자인적 결단</strong>입니다.</p>
+
+<h3>Q3. 스노볼 모델에서 \(\mu\)가 레벨에 종속되어야 수학적으로 완벽한 포화(Saturation)가 되는 것 아닌가요?</h3>
+<p><strong>A:</strong> 수학적으로는 맞지만, 의도적으로 선형 모델을 택했습니다.</p>
+<p>비선형 모델에서는 격차가 커질수록 변화율 \(dG/dt\)이 폭발적으로 커집니다. 이 경우 <strong>"게임이 교착 상태인지"를 서버가 판단하기 어렵습니다</strong>(노이즈가 심함).</p>
+<p>선형 모델에서는 <strong>기울기가 0에 수렴하는 순간 \(dG/dt \approx 0\)</strong>이 명확하게 드러납니다. 이래야 서버가 "지금 게임이 루즈하다"는 신호를 오탐(False Positive) 없이 감지하고, <strong>브레이커(Dimension Breaker)를 정확한 타이밍에 투입</strong>할 수 있습니다.</p>
+<p>참고로, 폭발(발산)은 최종적으로 \(L_{max}\)에 의해 제한되지만, \(L_{max}\) 도달 이전 구간에서는 \(\mu\) 및 플레이어 실력 편차로 인해 <em>기울기 변동(노이즈)</em>이 커질 수 있습니다. 따라서 여기서 문제 삼는 건 '무한 발산'이 아니라 <strong>교착 감지 신호의 안정성(SNR)</strong>입니다.</p>
+<p>실제로 본문에서도 "유리한 팀이 다음 자원을 먹기 쉽다"고 적었습니다. 실제 곡선은 상한선이 존재하는 지수함수꼴에 가까울 것입니다. 그러나 계산 자원을 아끼고 교착 감지의 정확도를 높이기 위해 선형이라는 가정을 채택했습니다.</p>
+<p><strong>결론:</strong> 현실성(Accuracy)보다 <strong>'게임 템포 제어 가능성(Controllability)'</strong>을 우선한 설계입니다.</p>
+
+<h3>Q4. 실제 게임 데이터는 불연속인데 \(dG/dt\)를 어떻게 계산하나요?</h3>
+<p><strong>A:</strong> 미분이 아니라 평균변화율(\(\Delta G / \Delta t\))로 계산합니다.</p>
+<p>물론 학술적으로는 \(G(t)\)를 <strong>헤비사이드 계단 함수(Heaviside Step Function)</strong>의 합으로 보고, 이를 <strong>푸리에 변환(Fourier Transform)</strong>하여 주파수 도메인에서 분석하는 방법도 있습니다. 하지만 실시간 게임 서버 환경에서는:</p>
+<ol>
+<li><strong>계산 비용(Computational Cost):</strong> \(O(N \log N)\)의 FFT 연산 부하</li>
+<li><strong>SNR(Signal-to-Noise Ratio):</strong> 델타 함수로 인한 고주파 노이즈 문제</li>
+</ol>
+<p>위 두 이유로 실시간 환경에서는 과잉 설계입니다. 따라서 가장 가볍고 직관적인 <strong>시간 도메인의 평균변화율(Time-domain Average Rate)</strong> 방식을 채택했습니다.</p>
+<p>실제 \(G(t)\)는 선형 + 불연속 함수입니다. 킬, 노드 점령 등 이벤트마다 계단식으로 점프합니다. 본문에서는 그래디언트 기반으로 서술했지만, 실제 구현에서는 시간 윈도우 내 평균변화율만 측정해도 충분합니다. <strong>선형 모델이기 때문에 평균이 대표값으로서 의미를 갖습니다.</strong></p>
+<p>다만 엣지 케이스가 존재합니다:</p>
+<blockquote>
+<p>60초 윈도우 내 평균변화율 ≈ 0인데, 실제로는 30초 부근에 대규모 교전이 발생해 \(G(t)\)가 급등 후 원래 값으로 복귀한 경우</p>
+</blockquote>
+<p>이 경우 "교착"이 아니라 "격렬한 공방"입니다. 이를 구분하기 위해 <strong>듀얼 윈도우(Dual Window)</strong> 방식을 제안합니다:</p>
+<table>
+<thead>
+<tr><th>윈도우</th><th>범위</th><th>역할</th></tr>
+</thead>
+<tbody>
+<tr><td>Window A</td><td>0~30초</td><td>최근 추세</td></tr>
+<tr><td>Window B</td><td>30~60초</td><td>이전 추세</td></tr>
+</tbody>
+</table>
+<p><strong>두 윈도우 모두</strong> \(\Delta G / \Delta t \approx 0\)일 때만 교착으로 판정합니다.</p>
+<p>또한 감지 즉시 스폰하지 않습니다:</p>
+<p><code>교착 감지 → "브레이커 스폰까지 15초" 알림 → 스폰</code></p>
+<p><strong>설계 의도:</strong></p>
+<ul>
+<li>플레이어에게 준비 시간 제공</li>
+<li>양 팀 모두 동등한 정보 → 공정성</li>
+<li>"곧 판이 바뀐다"는 예고 → 서스펜스</li>
+</ul>
+<p><strong>결론:</strong> 선형화의 진짜 이점은 <strong>플레이테스트 몇 판만으로 임계값 설정이 가능하다</strong>는 점입니다. 비선형이었다면 윈도우 크기와 임계값 튜닝이 상황 의존적이 되어 복잡해졌을 것입니다.</p>
+
+<hr />
+<blockquote>
+<p><em>위 Q&A는 학술적 검토 과정에서 제기될 수 있는 예상 질문들입니다. 모든 '비약'은 서버 퍼포먼스와 게임 경험을 위한 의도된 설계임을 명시합니다.</em></p>
+</blockquote>
+
+<hr />
+<h2 id="dev-guide">개발팀을 위한 가이드</h2>
+<p>이 문서를 실제로 구현하실 엔지니어분들께:</p>
+<blockquote>
+<p><strong>핵심은 "두 가지 워크플로우"입니다.</strong></p>
+</blockquote>
+
+<h3>A. 게임 템포 설계 시 (Top-down)</h3>
+<p><em>"한 판 15분, 채널링 5초, 교전 10초를 원한다"</em> — 게임 전체의 리듬을 먼저 잡을 때.</p>
+<ol>
+<li><strong>역할별 총 기여도를 동일하게 설정한다</strong> (공리)</li>
+<li>원하는 게임 템포에서 \(T^*\), \(t_d\) 결정</li>
+<li>\(T^*\)에서 평균 \(\bar{v}\), \(\bar{r}\), \(\overline{DPS}\), \(\bar{S}\) 역산</li>
+<li>CC 예산 배분 (하드 CC 보유 시 DPS 낮게)</li>
+</ol>
+<p><span class="math display">\[ T^*, t_d \xrightarrow{\text{역산}} \bar{v}, \bar{r}, \overline{DPS}, \bar{S}, \text{CC 예산}, ... \]</span></p>
+
+<h3>B. 개별 챔피언 추가 시 (Bottom-up)</h3>
+<p><em>"이 챔피언은 빠른 암살자야, v = 450, r = 300"</em> — 개별 챔피언을 추가할 때.</p>
+
+<h4><del>B-1. 기존 방식 (v0.5)</del></h4>
+<del>
+<ol>
+<li>역할별 총 기여도를 동일하게 설정한다 (공리)</li>
+<li>\(v\), \(r\) 결정 (이 챔피언의 컨셉)</li>
+<li>\(v, r \rightarrow k_{champ} \rightarrow S \rightarrow DPS\) 순차 도출</li>
+<li>CC 예산 배분 (하드 CC ↔ DPS 트레이드오프)</li>
+<li>\(T^*\)는 이미 전체 평균에서 결정됨 (개별 챔피언이 바꾸지 않음)</li>
+</ol>
+<p><span class="math display">\[ v, r \xrightarrow{\text{순차 도출}} k_{champ} \rightarrow S_{champ} \rightarrow DPS_{required} \]</span></p>
+</del>
+
+<h4>B-2. 능력치 버젯 모델 (v0.6)</h4>
+<p><em>6개 스탯 + CC를 하나의 버젯으로 통합.</em></p>
+
+<p><strong>버젯 공식:</strong> (단위 = <strong>총 데미지</strong>)</p>
+<p><span class="math display">\[ Budget = \underbrace{(ATK \times AS + CC_{equiv})}_{\text{공격력}} \times \underbrace{\left( \frac{d-r}{v} + \frac{S}{DPS_{avg}} \right)}_{\text{공격 시간}} \times \underbrace{\frac{I}{t_d \times DPS_{avg} \times (1-R)}}_{\text{실패 허용 횟수}} \]</span></p>
+
+<table>
+<thead>
+<tr><th>항</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>\(ATK \times AS + CC_{equiv}\)</td><td>총 공격력 (순수 DPS + CC 등가)</td></tr>
+<tr><td>\(\frac{d-r}{v} + \frac{S}{DPS_{avg}}\)</td><td>공격 시간 (도착 + 채널링)</td></tr>
+<tr><td>\(\frac{I}{t_d \times DPS_{avg} \times (1-R)}\)</td><td>실패 허용 횟수</td></tr>
+</tbody>
+</table>
+
+<p><strong>CC 등가:</strong> \( CC_{equiv} = \frac{S/2 + t_{cc} \times DPS_{avg} \times k}{t_{cooldown}} \)</p>
+
+<p><strong>사용법:</strong></p>
+<ol>
+<li>Budget 값을 먼저 고정 (모든 챔피언 동일)</li>
+<li>7개 스탯 (ATK, AS, v, r, S, R, CC) 자유롭게 분배</li>
+<li>Budget만 맞으면 밸런스 보장</li>
+</ol>
+
+<p><strong>고정값:</strong> \(d = 105\), \(I = 100\), \(t_d = 1.5\)초</p>
+
+<h3>요약</h3>
+<table>
+<thead>
+<tr><th>상황</th><th>워크플로우</th><th>시작점</th></tr>
+</thead>
+<tbody>
+<tr><td>게임 전체 템포 설계</td><td>Top-down</td><td>\(T^*\), \(t_d\)</td></tr>
+<tr><td>챔피언 하나 추가</td><td>Bottom-up (Budget)</td><td>\(Budget\) → 7개 스탯 분배</td></tr>
+</tbody>
+</table>
+
+<p><strong>두 방법 모두 유효하며, 같은 균형 상태로 수렴합니다.</strong></p>
+
+<h3>정리</h3>
+<ul>
+<li><strong>Top-down:</strong> 전체 템포를 잡거나 수정할 때, 채널링 시간 \(T^*\)가 평균 이동속도 \(\bar{v}\), 평균 사거리 \(\bar{r}\)을 포함한 모든 파라미터를 연쇄적으로 결정합니다.</li>
+<li><strong>Bottom-up (Budget):</strong> 개별 해커를 설계할 때, Budget을 먼저 고정하고 7개 스탯 (ATK, AS, v, r, S, R, CC)을 자유롭게 분배합니다. <strong>Budget = 공격력 × 공격시간 × 실패허용횟수</strong>만 맞으면 무차별곡선 위의 어떤 조합이든 밸런스가 보장됩니다.</li>
+</ul>
+
+<p>방어력(\(R\))은 "채널링 실패와 방어력의 재정의" 섹션에서 다루었듯이 <strong>"채널링 실패 시 생존 스탯"</strong>으로 정의됩니다. 이동속도(\(v\))와 역비례하도록 설계하면 역할별 차별화가 자연스럽게 이루어집니다.</p>
+
+<h3>하드 CC 예산 배분</h3>
+<p>하드 CC는 <strong>"채널링을 즉시 끊는다"</strong>는 점에서 극도로 강력합니다.</p>
+<ul>
+<li>아군 채널링 보호: 적 해커에게 Lock → 채널링 취소 → 아군 채널링 성공</li>
+<li>적 채널링 방해: 적 채널러에게 Lock → 보호막 무효화 → 해킹 실패</li>
+</ul>
+
+<p>따라서 하드 CC 보유 해커는:</p>
+<ol>
+<li><strong>긴 쿨다운</strong>으로 희소성 부여</li>
+<li><strong>낮은 순수 DPS</strong>로 트레이드오프</li>
+<li><strong>"언제 쓸 것인가"</strong>가 핵심 의사결정이 되도록</li>
+</ol>
+
+<blockquote>
+<p><strong>설계 원칙:</strong> 하드 CC를 가진 캐릭터의 공격력을 올려주고 싶다면 방법은 하나뿐이다. <strong>CC기의 쿨타임을 늘려서 등가 DPS를 깎는 수밖에 없다.</strong> DPS를 올리면서 CC도 유지하는 건 예산 초과다.</p>
+</blockquote>
+
+<blockquote>
+<p><strong>예시) 하늘:</strong> 하늘의 궁극기는 매우 강력하다. 글로벌 궁극기로, 타겟에게 하드 CC를 걸어 채널링을 취소시킨다. 하지만 하늘은 원거리 딜러이므로 자체 DPS는 유지되어야 한다. 이걸 유지하는 방법은 하나뿐이다. <strong>궁극기의 쿨타임을 극단적으로 늘려서</strong> 궁극기를 제외한 DPS를 유지시켜야 한다.</p>
+</blockquote>
+
+<blockquote>
+<p><strong>핵심:</strong> 이론적으로 하드 CC는 \(S/2 + t_{cc} \times \overline{DPS} \times k\)의 등가 가치를 가지며, 이는 순수 DPS 수 초 분량에 해당합니다. 하드 CC를 보유한 해커는 그만큼 DPS 예산에서 비용을 지불합니다. 다만 실제로는 더 많은 변수가 개입할 수 있으므로, 최종 수치는 개발팀 여러분의 판단을 신뢰합니다.</p>
+</blockquote>
+
+<h3>구현 방법 제안</h3>
+<p>위 워크플로우에서 도출된 수치들을 실제 서버/클라이언트에 어떻게 올릴 것인가?</p>
+
+<h4>왜 이렇게 해야 하는가</h4>
+<ul>
+<li><strong>보안:</strong> 방정식을 클라이언트에 직접 입력하면 역공학(Reverse Engineering)을 통한 밸런스 수치 노출 위험이 있습니다.</li>
+<li><strong>성능:</strong> 서버에서 매번 행렬 연산을 돌리는 것은 불필요한 부하입니다.</li>
+<li><strong>정당성:</strong> 채널링 시간, 보호막 계수, DPS 등은 <strong>맵/노드/챔피언 구조가 바뀌지 않는 한 상수</strong>입니다. 게임 중에 동적으로 변할 이유가 없습니다.</li>
+</ul>
+
+<h4>제안: 사전 계산 + 하드코딩</h4>
+<p>별도의 보안 환경에서 미리 계산하여 테이블을 생성하고, 클라이언트/서버에는 <strong>결과값만 하드코딩</strong>합니다.</p>
+
+<p><strong>1. 채널링 시간 \(T^*\)</strong></p>
+<pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; color: #0f0; overflow-x: auto;">
+# 사전 계산 (Python/NumPy 의사코드)
+A = D_matrix + V_matrix + K_matrix
+b = source_vector
+U_steady = np.linalg.solve(A, -b)
+T_star = extract_characteristic_time(A)
+</pre>
+<pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; color: #0f0; overflow-x: auto;">
+# 런타임 (O(1))
+channeling_time = T_star_lookup[node_id]
+</pre>
+
+<p><strong>2. 캐릭터 스탯 예산</strong></p>
+<p>본 문서의 밸런싱 체인 \(v \rightarrow k_{champ} \rightarrow S_{champ} \rightarrow DPS_{required}\)도 같은 방식으로 처리합니다.</p>
+<pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; color: #0f0; overflow-x: auto;">
+# 사전 계산 (Python 의사코드)
+for champ in champion_list:
+    k_champ = v_mean / champ.move_speed
+    S_champ = S_mean * k_champ
+    DPS_required = S_mean / T_star  # 평균 DPS 기준
+    
+    # 하드 CC 보유 시 DPS 차감
+    if champ.has_hard_cc:
+        cc_value = (S_mean / 2) + (champ.cc_duration * DPS_team * k_effect)
+        DPS_required -= cc_value / cc_cooldown
+    
+    balance_table[champ.id] = {
+        'k': k_champ,
+        'S': S_champ,
+        'DPS': DPS_required
+    }
+</pre>
+<pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; color: #0f0; overflow-x: auto;">
+# 런타임 (O(1))
+shield = balance_table[champ_id]['S']
+</pre>
+
+<p><strong>3. 교착 감지 (그래디언트 스폰)</strong></p>
+<p>교착 감지 알고리즘(Q4 참조)은 위와 다릅니다. 클라이언트에 하드코딩하지 않고, <strong>서버에서 실시간으로 계산</strong>합니다.</p>
+<ul>
+<li><strong>이유:</strong> 중요한 알고리즘이 클라이언트에 노출되면 역공학 위험이 있습니다.</li>
+<li><strong>원칙:</strong> 클라이언트는 멍청하게, 서버는 똑똑하게.</li>
+<li><strong>구현:</strong> 서버가 교착 판정 → 클라이언트에 스폰 패킷 전송 → 클라이언트는 연출만 담당.</li>
+</ul>
+
+<blockquote>
+<p><strong>요약:</strong> 방정식으로 도출 → 테이블 생성 → 하드코딩. 이 파이프라인은 채널링 시간, 보호막 계수, DPS, CC 예산 등 본 문서의 모든 밸런스 수치에 동일하게 적용됩니다. 단, 교착 감지처럼 실시간 판정이 필요한 로직은 서버 사이드에서 처리합니다.</p>
+</blockquote>
+
+<hr />
+<p><strong>실제 템포는 플레이 테스트로 결정되어야 합니다.</strong></p>
+<p>그리고 이 방정식은 완전하지 않습니다.</p>
+<ul>
+<li>실제 맵은 2차원인데, 본 모델에서는 1차원으로 압축되었습니다. — 단, 제 직관상, 게임에서 중요한 것은 노드 간 최단 경로이므로, 2차원 확장 없이 그래프 기반 접근으로 충분할 수 있습니다.</li>
+<li><del>캐릭터의 다른 스킬 계수나 스탯은 어떻게 방정식에 자연스럽게 편입시킬 것인지 정의되지 않았습니다.</del> → <strong>v0.2:</strong> 시스템 상태(Lock, Drag, Jam, Standby)의 등가 DPS 모델이 추가되었습니다.</li>
+<li>그 외에도 수많은 빈칸이 있습니다.</li>
+</ul>
+<blockquote>
+<p>계속 사고 실험을 돌리다 보니 답이 보였습니다. 엔지니어링은 여러분이 훨씬 잘할거라 확신하기에, 오히려 이런 사고과정을 남깁니다.</p>
+</blockquote>
+<p>이 문서를 끝까지 읽으신 여러분이라면, 그 빈칸을 채워내실 수 있으실 거라 확신합니다.</p>
+<p>감사합니다.</p>
+
+        </div>
+        
+        <footer>
+            <p>PDA Technical Documentation — Confidential Document</p>
+            <p>© 2025 Woncheol Joh. All Rights Reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
