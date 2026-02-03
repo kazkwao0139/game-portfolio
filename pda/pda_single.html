@@ -1,0 +1,3129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PDA Playable Build</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #0a0a0f; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            color: #e6edf3;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            border: 2px solid #30363d;
+            border-radius: 8px;
+        }
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 14px;
+            color: #e6edf3;
+            font-family: 'Consolas', monospace;
+            line-height: 1.8;
+            background: rgba(13, 17, 23, 0.85);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            min-width: 280px;
+        }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #8b949e;
+            font-size: 13px;
+            background: rgba(13, 17, 23, 0.85);
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui"></div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls">WASD: 이동 | E: 대시 | Q: 궁 | F: 해킹(홀드) | B: 귀환(홀드) | 클릭: 공격 | 1/2: 무기 교체(베이스) | 3: 무기 레벨업 | R: 재시작</div>
+
+    <script>
+    // ==================== CONFIG ====================
+    const CONFIG = {
+        // 맵 (미터 단위)
+        MAP_WIDTH: 210,
+        MAP_HEIGHT: 210,
+        
+        // 스케일
+        SCALE: 25,  // 1m = 25px
+        
+        // 화면 (픽셀)
+        SCREEN_WIDTH: 1600,
+        SCREEN_HEIGHT: 900,
+        
+        // 게임
+        TPS: 60,
+        
+        // 플레이어
+        PLAYER_RADIUS: 0.5,    // 미터 (실제 사람 크기)
+        PLAYER_SPEED: 8,       // m/s (달리기 속도)
+        ATTACK_RANGE: 10,      // 미터
+        ATTACK_DAMAGE: 10,
+        ATTACK_COOLDOWN: 0.5,  // 초
+        
+        // 도로
+        LANE_WIDTH: 15,        // 미터
+        
+        // 채널링
+        CHANNEL_RANGE: 1,      // 노드에서 1미터 이내 (실제 채널링 가능 거리)
+        AI_NODE_DETECT_RANGE: 3,  // AI가 노드 인식하는 범위 (미터)
+        CHANNEL_FAIL_DELAY: 2, // 채널링 실패 시 후딜레이 (초)
+        
+        // 보호막 수식: S(L) = 40 + 10 × L
+        SHIELD_BASE: 40,
+        SHIELD_PER_LEVEL: 10,
+        
+        // XP 시스템
+        KILL_XP: 4,
+        XP_PER_LEVEL: 12,
+        MAX_LEVEL: 5,
+        
+        // 기본 이동속도 (무기 배율 적용 전)
+        BASE_SPEED: 3,  // m/s (조깅 속도 기준)
+        
+        // 시야
+        VISION_RANGE: 18,  // 전장의 안개
+        
+        // 귀환/회복
+        RECALL_TIME: 4,      // 귀환 채널링 (초)
+        BASE_HEAL_RATE: 20,  // 베이스 근처 초당 회복량
+        
+        // 미니맵
+        MINIMAP_SIZE: 180,
+        MINIMAP_MARGIN: 20,
+    };
+    
+    // 무기 스펙
+    // 무기 스펙 (Budget = 1186 동일)
+    const WEAPON_SPECS = {
+        'melee': {
+            speedMult: 1.8,    // 이동속도 배율 (빠름)
+            range: 3,          // 사거리 (진짜 근접)
+            dpsMult: 0.85,     // DPS 배율
+            shieldMult: 0.8,   // 보호막 배율 (낮음)
+            armor: 0.2,        // 방어력 20% (후딜 중 피해감소)
+            dashDist: 4,       // 대시 거리 (짧음)
+            dashCool: 3,       // 대시 쿨다운 (짧음)
+            ultRadius: 8,      // 궁 범위 (내 주변)
+            ultDamage: 40,     // 궁 데미지
+            ultCool: 20,       // 궁 쿨다운
+        },
+        'ranged': {
+            speedMult: 1.4,    // 이동속도 배율 (느림)
+            range: 14,         // 사거리 (길음)
+            dpsMult: 0.8,      // DPS 배율
+            shieldMult: 1.2,   // 보호막 배율 (높음)
+            armor: 0.1,        // 방어력 10%
+            dashDist: 7,       // 대시 거리 (길음)
+            dashCool: 8,       // 대시 쿨다운 (길음)
+            ultRadius: 6,      // 궁 범위 (지정 위치)
+            ultDamage: 35,     // 궁 데미지
+            ultCool: 25,       // 궁 쿨다운
+        },
+    };
+    
+    const ULT_REQUIRED_LEVEL = 2;  // 궁 해금 레벨
+    const ULT_INITIAL_COOL = 10;   // 초기 쿨다운
+    
+    // 캔버스 크기 = 화면 크기
+    const CANVAS_WIDTH = CONFIG.SCREEN_WIDTH;
+    const CANVAS_HEIGHT = CONFIG.SCREEN_HEIGHT;
+    
+    // 카메라
+    const camera = {
+        x: 0,  // 미터 단위
+        y: 0,
+    };
+    
+    // ==================== 도로 유틸리티 ====================
+    // 점과 선분 사이 최단 거리
+    function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const lengthSq = dx * dx + dy * dy;
+        
+        if (lengthSq === 0) {
+            // 선분이 점인 경우
+            return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+        }
+        
+        // 투영 비율 t (0~1 사이면 선분 위)
+        let t = ((px - x1) * dx + (py - y1) * dy) / lengthSq;
+        t = Math.max(0, Math.min(1, t));
+        
+        // 가장 가까운 점
+        const nearestX = x1 + t * dx;
+        const nearestY = y1 + t * dy;
+        
+        return Math.sqrt((px - nearestX) ** 2 + (py - nearestY) ** 2);
+    }
+    
+    // 플레이어가 도로 위에 있는지 확인
+    function isOnRoad(x, y) {
+        const halfWidth = CONFIG.LANE_WIDTH / 2;
+        
+        for (const [from, to] of NODE_CONNECTIONS) {
+            const n1 = NODE_POSITIONS[from];
+            const n2 = NODE_POSITIONS[to];
+            const dist = pointToSegmentDistance(x, y, n1.x, n1.y, n2.x, n2.y);
+            if (dist <= halfWidth) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // 가장 가까운 도로 위 위치 찾기
+    function getNearestRoadPosition(x, y) {
+        const halfWidth = CONFIG.LANE_WIDTH / 2;
+        let bestX = x, bestY = y;
+        let minDist = Infinity;
+        
+        for (const [from, to] of NODE_CONNECTIONS) {
+            const n1 = NODE_POSITIONS[from];
+            const n2 = NODE_POSITIONS[to];
+            
+            // 선분 위 가장 가까운 점 계산
+            const dx = n2.x - n1.x;
+            const dy = n2.y - n1.y;
+            const lengthSq = dx * dx + dy * dy;
+            
+            if (lengthSq === 0) continue;
+            
+            let t = ((x - n1.x) * dx + (y - n1.y) * dy) / lengthSq;
+            t = Math.max(0, Math.min(1, t));
+            
+            const nearestX = n1.x + t * dx;
+            const nearestY = n1.y + t * dy;
+            const dist = Math.sqrt((x - nearestX) ** 2 + (y - nearestY) ** 2);
+            
+            if (dist < minDist) {
+                minDist = dist;
+                // 도로 가장자리로 밀어냄
+                if (dist > 0) {
+                    const ratio = (halfWidth - 0.5) / dist;  // 약간 안쪽으로
+                    bestX = nearestX + (x - nearestX) * ratio;
+                    bestY = nearestY + (y - nearestY) * ratio;
+                } else {
+                    bestX = nearestX;
+                    bestY = nearestY;
+                }
+            }
+        }
+        return { x: bestX, y: bestY };
+    }
+    
+    // ==================== 노드 정의 (미터 단위) ====================
+    const NODE_POSITIONS = {
+        // A팀 (아래) - 가디언만 A팀 소유
+        'A_Base': { x: 105, y: 200, tier: 'Base', team: 0, initOwner: 0, initLocked: true },
+        'A_Guardian': { x: 105, y: 185, tier: 'Guardian', team: 0, initOwner: 0, initLocked: true },
+        'A_T3': { x: 105, y: 165, tier: 'T3', team: 0, initOwner: -1, initLocked: true },
+        'A_T2_L': { x: 50, y: 140, tier: 'T2', team: 0, initOwner: -1, initLocked: true },
+        'A_T2_R': { x: 160, y: 140, tier: 'T2', team: 0, initOwner: -1, initLocked: true },
+        
+        // 중립 - T1만 처음부터 열림
+        'T1_L': { x: 35, y: 105, tier: 'T1', team: -1, initOwner: -1, initLocked: false },
+        'T1_R': { x: 175, y: 105, tier: 'T1', team: -1, initOwner: -1, initLocked: false },
+        'Breaker': { x: 105, y: 105, tier: 'Breaker', team: -1, initOwner: -1, initLocked: true },
+        
+        // B팀 (위) - 가디언만 B팀 소유
+        'B_T2_L': { x: 50, y: 70, tier: 'T2', team: 1, initOwner: -1, initLocked: true },
+        'B_T2_R': { x: 160, y: 70, tier: 'T2', team: 1, initOwner: -1, initLocked: true },
+        'B_T3': { x: 105, y: 45, tier: 'T3', team: 1, initOwner: -1, initLocked: true },
+        'B_Guardian': { x: 105, y: 25, tier: 'Guardian', team: 1, initOwner: 1, initLocked: true },
+        'B_Base': { x: 105, y: 10, tier: 'Base', team: 1, initOwner: 1, initLocked: true },
+    };
+    
+    const NODE_CONNECTIONS = [
+        ['A_Base', 'A_Guardian'],
+        ['A_Guardian', 'A_T3'],
+        ['A_T3', 'A_T2_L'], ['A_T3', 'A_T2_R'],
+        ['A_T3', 'Breaker'],  // 미드레인
+        ['A_T2_L', 'T1_L'], ['A_T2_R', 'T1_R'],
+        ['T1_L', 'B_T2_L'], ['T1_R', 'B_T2_R'],
+        ['B_T2_L', 'B_T3'], ['B_T2_R', 'B_T3'],
+        ['Breaker', 'B_T3'],  // 미드레인
+        ['B_T3', 'B_Guardian'],
+        ['B_Guardian', 'B_Base'],
+        // 브레이커 ↔ T1, T2 연결 (대각선 루트)
+        ['T1_L', 'Breaker'], ['T1_R', 'Breaker'],
+        ['A_T2_L', 'Breaker'], ['A_T2_R', 'Breaker'],
+        ['B_T2_L', 'Breaker'], ['B_T2_R', 'Breaker'],
+    ];
+    
+    // NODE_CONNECTIONS를 양방향 그래프로 변환
+    const NODE_GRAPH = {};
+    for (const [a, b] of NODE_CONNECTIONS) {
+        if (!NODE_GRAPH[a]) NODE_GRAPH[a] = [];
+        if (!NODE_GRAPH[b]) NODE_GRAPH[b] = [];
+        if (!NODE_GRAPH[a].includes(b)) NODE_GRAPH[a].push(b);
+        if (!NODE_GRAPH[b].includes(a)) NODE_GRAPH[b].push(a);
+    }
+    
+    const NODE_SPECS = {
+        'Base': { radius: 8, hp: 9999, channelTime: 999, dps: 0, range: 0, value: 0 },
+        'Guardian': { radius: 6, hp: 500, channelTime: 9.0, dps: 4.0, range: 10, value: 10 },
+        'T3': { radius: 5, hp: 400, channelTime: 9.1, dps: 6.0, range: 14, value: 5 },
+        'T2': { radius: 7, hp: 300, channelTime: 6.2, dps: 2.5, range: 8, value: 3 },
+        'T1': { radius: 7, hp: 200, channelTime: 3.0, dps: 1.5, range: 5, value: 2 },
+        'Breaker': { radius: 5, hp: 0, channelTime: 8.4, dps: 0, range: 0, value: 0 },
+    };
+    
+    // 텔레포트 패널 정의
+    // 각 베이스 중앙에 4개 패널 (2x2 배치, 넓게 퍼뜨림)
+    // 패널 위치는 실제 목표 노드 방향과 일치
+    const TELEPORT_PANELS = {
+        // A팀 베이스 패널 (A_Base: 105, 200) - 넓게 배치
+        // A_T2_L은 북서쪽, A_T2_R은 북동쪽, B_T2는 더 북쪽
+        'A_TP_T2L': { x: 97, y: 205, targetNode: 'A_T2_L', team: 0 },   // 남서 (아군 T2L - 서쪽방향)
+        'A_TP_T2R': { x: 113, y: 205, targetNode: 'A_T2_R', team: 0 },  // 남동 (아군 T2R - 동쪽방향)
+        'A_TP_BT2L': { x: 97, y: 195, targetNode: 'B_T2_L', team: 0 },  // 북서 (적 T2L - 서쪽방향)
+        'A_TP_BT2R': { x: 113, y: 195, targetNode: 'B_T2_R', team: 0 }, // 북동 (적 T2R - 동쪽방향)
+        // B팀 베이스 패널 (B_Base: 105, 10) - 실제 방향과 일치
+        // B_T2_L은 남서쪽, B_T2_R은 남동쪽, A_T2는 더 남쪽
+        'B_TP_T2L': { x: 97, y: 15, targetNode: 'B_T2_L', team: 1 },    // 남서 (아군 T2L - 서쪽방향)
+        'B_TP_T2R': { x: 113, y: 15, targetNode: 'B_T2_R', team: 1 },   // 남동 (아군 T2R - 동쪽방향)
+        'B_TP_AT2L': { x: 97, y: 5, targetNode: 'A_T2_L', team: 1 },    // 북서 (적 T2L - 서쪽방향)
+        'B_TP_AT2R': { x: 113, y: 5, targetNode: 'A_T2_R', team: 1 },   // 북동 (적 T2R - 동쪽방향)
+    };
+    const TELEPORT_PANEL_RADIUS = 2.5;  // 패널 크기 (미터)
+    
+    // 부쉬 위치 (대칭)
+    const BUSHES = [
+        // T1 근처
+        { x: 25, y: 105, radius: 6 },   // T1_L 왼쪽
+        { x: 185, y: 105, radius: 6 },  // T1_R 오른쪽
+        // T2 근처
+        { x: 40, y: 130, radius: 5 },   // A_T2_L 왼쪽아래
+        { x: 170, y: 130, radius: 5 },  // A_T2_R 오른쪽아래
+        { x: 40, y: 80, radius: 5 },    // B_T2_L 왼쪽위
+        { x: 170, y: 80, radius: 5 },   // B_T2_R 오른쪽위
+        // T3 근처
+        { x: 95, y: 155, radius: 5 },   // A_T3 왼쪽
+        { x: 115, y: 155, radius: 5 },  // A_T3 오른쪽
+        { x: 95, y: 55, radius: 5 },    // B_T3 왼쪽
+        { x: 115, y: 55, radius: 5 },   // B_T3 오른쪽
+        // 브레이커 근처
+        { x: 95, y: 115, radius: 5 },   // Breaker 왼쪽위
+        { x: 115, y: 95, radius: 5 },   // Breaker 오른쪽아래
+    ];
+    
+    // ==================== GAME STATE ====================
+    const game = {
+        tick: 0,
+        time: 0,
+        players: [],
+        nodes: {},
+        phase: 1,
+        winner: null,
+        // 가디언 영구 언락 플래그
+        aGuardianUnlocked: false,
+        bGuardianUnlocked: false,
+        // 팀 XP/레벨
+        teams: [
+            { xp: 0, level: 1 },  // Team A
+            { xp: 0, level: 1 },  // Team B
+        ],
+        // 궁극기 이펙트
+        ultEffects: [],
+        // 대시 이펙트
+        dashEffects: [],
+        // 공격 이펙트
+        attackEffects: [],
+        // 알림 시스템
+        notifications: [],
+        // 브레이커 시스템
+        gHistory: [],           // G값 히스토리 (최대 900개)
+        breakerSpawned: false,  // 브레이커 활성화됨
+        breakerClaimCount: 0,   // 브레이커 점령 횟수
+        firstStalemateTime: -1, // 첫 교착 감지 시간
+    };
+    
+    // 입력 상태
+    const input = {
+        w: false, a: false, s: false, d: false,
+        f: false,  // 채널링
+        e: false,  // 대시
+        b: false,  // 귀환
+        q: false,  // 궁극기
+        '1': false, '2': false, '3': false,  // 무기 교체/레벨업
+        mouseX: 0, mouseY: 0,
+        mouseDown: false,
+        // 스킬 조준 상태
+        aimingDash: false,   // E키 조준 중
+        aimingUlt: false,    // Q키 조준 중
+    };
+    
+    // ==================== 초기화 ====================
+    function initGame() {
+        // 노드 초기화
+        for (const [id, data] of Object.entries(NODE_POSITIONS)) {
+            game.nodes[id] = {
+                ...data,
+                owner: data.initOwner,  // 초기 소유권
+                locked: data.initLocked, // 초기 잠금 상태
+                hp: NODE_SPECS[data.tier].hp,
+                maxHp: NODE_SPECS[data.tier].hp,
+            };
+        }
+        
+        // 플레이어 초기화 (1 플레이어 + 7 AI)
+        // 팀 A (0-3) - A_Base(105, 200) 근처 도로 위
+        for (let i = 0; i < 4; i++) {
+            game.players.push({
+                id: i,
+                team: 0,
+                x: 102 + (i % 2) * 6,  // 102, 108, 102, 108 (도로 폭 내)
+                y: 195 - Math.floor(i / 2) * 3,  // 195, 195, 192, 192
+                hp: 100,
+                maxHp: 100,
+                isAI: i !== 0,  // 0번만 플레이어
+                level: 1,
+                attackCooldown: 0,
+                respawnTimer: 0,
+                alive: true,
+                weaponType: i === 0 ? 'melee' : (i % 2 === 0 ? 'melee' : 'ranged'),  // 플레이어는 melee, AI는 섞어서
+                weaponLevel: 1,       // 무기 레벨
+                weaponPoints: 0,      // 무기 포인트
+                dashCooldown: 0,  // 대시 쿨다운
+                ultCooldown: ULT_INITIAL_COOL,  // 궁 쿨다운 (초기값)
+                recalling: false, // 귀환 중
+                recallProgress: 0, // 귀환 진행도
+                // 채널링 상태
+                channeling: false,
+                channelTarget: null,  // 채널링 중인 노드 ID
+                channelProgress: 0,   // 현재 진행도 (초)
+                channelTime: 0,       // 필요한 총 시간 (초)
+                channelShield: 0,     // 채널링 보호막 HP
+                maxChannelShield: 0,  // 최대 보호막 (UI용)
+                channelCompleted: false, // F키 뗄 때까지 재시도 방지
+                stunTimer: 0,         // 후딜레이 (스턴)
+                hasBreakerbuff: false, // 브레이커 버프
+                targetNode: null, // AI 목표 노드
+                currentNode: 'A_Guardian', // AI 현재 노드
+            });
+        }
+        
+        // 팀 B (4-7) - B_Base(105, 10) 근처 도로 위
+        for (let i = 0; i < 4; i++) {
+            game.players.push({
+                id: i + 4,
+                team: 1,
+                x: 102 + (i % 2) * 6,  // 102, 108, 102, 108 (도로 폭 내)
+                y: 15 + Math.floor(i / 2) * 3,  // 15, 15, 18, 18
+                hp: 100,
+                maxHp: 100,
+                isAI: true,
+                level: 1,
+                attackCooldown: 0,
+                respawnTimer: 0,
+                alive: true,
+                weaponType: i % 2 === 0 ? 'melee' : 'ranged',  // AI는 섞어서
+                weaponLevel: 1,       // 무기 레벨
+                weaponPoints: 0,      // 무기 포인트
+                dashCooldown: 0,  // 대시 쿨다운
+                ultCooldown: ULT_INITIAL_COOL,  // 궁 쿨다운 (초기값)
+                recalling: false, // 귀환 중
+                recallProgress: 0, // 귀환 진행도
+                // 채널링 상태
+                channeling: false,
+                channelTarget: null,
+                channelProgress: 0,
+                channelTime: 0,
+                channelShield: 0,
+                maxChannelShield: 0,
+                channelCompleted: false, // F키 뗄 때까지 재시도 방지
+                stunTimer: 0,
+                hasBreakerbuff: false, // 브레이커 버프
+                targetNode: null, // AI 목표 노드
+                currentNode: 'B_Guardian', // AI 현재 노드
+            });
+        }
+    }
+    
+    // ==================== 입력 처리 ====================
+    document.addEventListener('keydown', e => {
+        const key = e.key.toLowerCase();
+        if (key in input) input[key] = true;
+        
+        // R키로 리스타트
+        if (key === 'r' && game.winner !== null) {
+            // 게임 상태 초기화
+            game.tick = 0;
+            game.time = 0;
+            game.players = [];
+            game.nodes = {};
+            game.winner = null;
+            game.aGuardianUnlocked = false;
+            game.bGuardianUnlocked = false;
+            game.teams = [
+                { xp: 0, level: 1 },
+                { xp: 0, level: 1 },
+            ];
+            game.ultEffects = [];
+            game.dashEffects = [];
+            game.attackEffects = [];
+            // 브레이커 시스템 초기화
+            game.gHistory = [];
+            game.breakerSpawned = false;
+            game.breakerClaimCount = 0;
+            game.firstStalemateTime = -1;
+            initGame();
+        }
+    });
+    
+    document.addEventListener('keyup', e => {
+        const key = e.key.toLowerCase();
+        if (key in input) input[key] = false;
+    });
+    
+    document.addEventListener('mousemove', e => {
+        const canvas = document.getElementById('gameCanvas');
+        const rect = canvas.getBoundingClientRect();
+        input.mouseX = e.clientX - rect.left;
+        input.mouseY = e.clientY - rect.top;
+    });
+    
+    document.addEventListener('mousedown', () => input.mouseDown = true);
+    document.addEventListener('mouseup', () => input.mouseDown = false);
+    
+    // ==================== 업데이트 ====================
+    function update(dt) {
+        // 승리 시 정지
+        if (game.winner !== null) return;
+        
+        game.tick++;
+        game.time += dt;
+        
+        // 브레이커 시스템: G값 기록 + 교착 체크 (1초마다)
+        if (game.tick % 60 === 0) { // 60fps 기준 1초마다
+            const g = calculateG();
+            game.gHistory.push(g);
+            // 최대 900개 유지
+            if (game.gHistory.length > 900) {
+                game.gHistory.shift();
+            }
+            // 교착 감지 → 브레이커 활성화
+            spawnBreakerIfNeeded();
+        }
+        
+        for (const p of game.players) {
+            if (!p.alive) {
+                p.respawnTimer -= dt;
+                if (p.respawnTimer <= 0) {
+                    respawn(p);
+                }
+                continue;
+            }
+            
+            if (p.isAI) {
+                updateAI(p, dt);
+            } else {
+                updatePlayer(p, dt);
+            }
+            
+            // 쿨다운 감소 (AI/플레이어 공통)
+            if (p.attackCooldown > 0) {
+                p.attackCooldown -= dt;
+            }
+            if (p.dashCooldown > 0) {
+                p.dashCooldown -= dt;
+            }
+            if (p.ultCooldown > 0) {
+                p.ultCooldown -= dt;
+            }
+        }
+        
+        // 타워 공격
+        updateTowerAttacks(dt);
+        
+        // 노드 잠금 상태 업데이트
+        updateNodeLocks();
+        
+        // 다중 채널링 처리
+        updateMultiChanneling(dt);
+        
+        // 카메라가 플레이어 따라감
+        const me = game.players[0];
+        camera.x = me.x - (CONFIG.SCREEN_WIDTH / CONFIG.SCALE) / 2;
+        camera.y = me.y - (CONFIG.SCREEN_HEIGHT / CONFIG.SCALE) / 2;
+        
+        // 카메라 맵 경계 제한
+        camera.x = Math.max(0, Math.min(CONFIG.MAP_WIDTH - CONFIG.SCREEN_WIDTH / CONFIG.SCALE, camera.x));
+        camera.y = Math.max(0, Math.min(CONFIG.MAP_HEIGHT - CONFIG.SCREEN_HEIGHT / CONFIG.SCALE, camera.y));
+        
+        // 궁극기 이펙트 업데이트
+        for (let i = game.ultEffects.length - 1; i >= 0; i--) {
+            game.ultEffects[i].timer -= dt;
+            if (game.ultEffects[i].timer <= 0) {
+                game.ultEffects.splice(i, 1);
+            }
+        }
+        
+        // 대시 이펙트 업데이트
+        for (let i = game.dashEffects.length - 1; i >= 0; i--) {
+            game.dashEffects[i].timer -= dt;
+            if (game.dashEffects[i].timer <= 0) {
+                game.dashEffects.splice(i, 1);
+            }
+        }
+        
+        // 공격 이펙트 업데이트
+        for (let i = game.attackEffects.length - 1; i >= 0; i--) {
+            game.attackEffects[i].timer -= dt;
+            if (game.attackEffects[i].timer <= 0) {
+                game.attackEffects.splice(i, 1);
+            }
+        }
+        
+        // 알림 업데이트
+        for (let i = game.notifications.length - 1; i >= 0; i--) {
+            game.notifications[i].timer -= dt;
+            if (game.notifications[i].timer <= 0) {
+                game.notifications.splice(i, 1);
+            }
+        }
+    }
+    
+    function updateTowerAttacks(dt) {
+        // 각 노드가 범위 내 적에게 DPS 분산 공격
+        for (const [id, node] of Object.entries(game.nodes)) {
+            const spec = NODE_SPECS[node.tier];
+            
+            // 중립이거나 DPS 없으면 스킵
+            if (node.owner === -1 || spec.dps <= 0) continue;
+            
+            // 범위 내 적 찾기
+            const enemyTeam = 1 - node.owner;
+            const enemiesInRange = [];
+            
+            for (const p of game.players) {
+                if (p.team !== enemyTeam || !p.alive) continue;
+                if (distance(p, node) < spec.range) {
+                    enemiesInRange.push(p);
+                }
+            }
+            
+            if (enemiesInRange.length === 0) continue;
+            
+            // DPS 분산
+            let dpsPerTarget = spec.dps / enemiesInRange.length;
+            
+            for (const p of enemiesInRange) {
+                // 채널링 중이면 타워 대미지 면역
+                if (p.channeling) continue;
+                
+                // 브레이커 버프: 받는 노드 DPS 감소
+                let damage = dpsPerTarget * dt;
+                if (p.hasBreakerbuff) {
+                    damage *= (1 - getBreakerbuff());
+                }
+                
+                p.hp -= damage;
+                
+                if (p.hp <= 0) {
+                    p.alive = false;
+                    p.hp = 0;
+                    const targetTeamLevel = getTeamLevel(p.team);
+                    p.respawnTimer = 6 + 2 * targetTeamLevel;
+                    cancelChanneling(p);
+                    // 타워 킬은 XP 없음
+                }
+            }
+        }
+    }
+    
+    function updateNodeLocks() {
+        // T1_L 점령 → A_T2_L, B_T2_L 언락
+        if (game.nodes['T1_L'].owner !== -1) {
+            game.nodes['A_T2_L'].locked = false;
+            game.nodes['B_T2_L'].locked = false;
+        }
+        
+        // T1_R 점령 → A_T2_R, B_T2_R 언락
+        if (game.nodes['T1_R'].owner !== -1) {
+            game.nodes['A_T2_R'].locked = false;
+            game.nodes['B_T2_R'].locked = false;
+        }
+        
+        // A_T2 중 하나 점령 → A_T3 언락
+        if (game.nodes['A_T2_L'].owner !== -1 || game.nodes['A_T2_R'].owner !== -1) {
+            game.nodes['A_T3'].locked = false;
+        }
+        
+        // B_T2 중 하나 점령 → B_T3 언락
+        if (game.nodes['B_T2_L'].owner !== -1 || game.nodes['B_T2_R'].owner !== -1) {
+            game.nodes['B_T3'].locked = false;
+        }
+        
+        // Breaker는 교착 감지 시 unlock (spawnBreakerIfNeeded에서 처리)
+        
+        // B팀이 A_T3 점령 → A_Guardian 영구 언락
+        if (game.nodes['A_T3'].owner === 1) {
+            game.aGuardianUnlocked = true;
+        }
+        
+        // A팀이 B_T3 점령 → B_Guardian 영구 언락
+        if (game.nodes['B_T3'].owner === 0) {
+            game.bGuardianUnlocked = true;
+        }
+        
+        // 영구 언락 적용
+        if (game.aGuardianUnlocked) {
+            game.nodes['A_Guardian'].locked = false;
+        }
+        if (game.bGuardianUnlocked) {
+            game.nodes['B_Guardian'].locked = false;
+        }
+    }
+    
+    function updatePlayer(p, dt) {
+        // 스턴 중이면 아무것도 못함
+        if (p.stunTimer > 0) {
+            p.stunTimer -= dt;
+            return;
+        }
+        
+        // 무기 교체 (베이스에서만)
+        if (isAtBase(p)) {
+            if (input['1']) p.weaponType = 'melee';
+            if (input['2']) p.weaponType = 'ranged';
+            
+            // 베이스 근처 HP 회복
+            if (p.hp < p.maxHp) {
+                p.hp = Math.min(p.maxHp, p.hp + CONFIG.BASE_HEAL_RATE * dt);
+            }
+        }
+        
+        // 무기 레벨 투자 (3키, 어디서나 가능)
+        if (input['3'] && p.weaponPoints > 0) {
+            p.weaponLevel++;
+            p.weaponPoints--;
+            input['3'] = false;  // 한번만 실행
+        }
+        
+        // B키 누르면 귀환
+        if (input.b && !isAtBase(p) && !p.channeling && !p.recalling) {
+            p.recalling = true;
+            p.recallProgress = 0;
+        }
+        
+        // 귀환 중이면
+        if (p.recalling) {
+            // B키 떼거나 이동하면 취소
+            if (!input.b || input.w || input.a || input.s || input.d) {
+                p.recalling = false;
+                p.recallProgress = 0;
+            } else {
+                // 귀환 진행
+                p.recallProgress += dt;
+                
+                // 귀환 완료
+                if (p.recallProgress >= CONFIG.RECALL_TIME) {
+                    const baseId = p.team === 0 ? 'A_Base' : 'B_Base';
+                    const base = game.nodes[baseId];
+                    p.x = base.x;
+                    p.y = base.y + (p.team === 0 ? -10 : 10);
+                    p.hp = p.maxHp;
+                    p.recalling = false;
+                    p.recallProgress = 0;
+                }
+            }
+            return;
+        }
+        
+        // F키 누르면 채널링 시도 (채널링 중 아닐 때만)
+        if (input.f && !p.channeling && !p.channelCompleted) {
+            tryStartChanneling(p);
+        }
+        
+        // F키 떼면 channelCompleted 리셋
+        if (!input.f) {
+            p.channelCompleted = false;
+        }
+        
+        // 채널링 중이면
+        if (p.channeling) {
+            // F키 떼면 취소 + 후딜레이 (다른 입력은 무시)
+            if (!input.f) {
+                failChanneling(p);
+            } else {
+                // 채널링 진행
+                p.channelProgress += dt;
+                
+                // 채널링 완료
+                if (p.channelProgress >= p.channelTime) {
+                    completeChanneling(p);
+                    p.channelCompleted = true;  // F 뗄 때까지 재시도 방지
+                }
+            }
+            return;
+        }
+        
+        // Q키 궁극기 조준 토글
+        if (input.q && p.ultCooldown <= 0 && getTeamLevel(p.team) >= ULT_REQUIRED_LEVEL) {
+            input.aimingUlt = !input.aimingUlt;
+            input.aimingDash = false;  // 다른 조준 취소
+            input.q = false;
+        }
+        
+        // E키 대시 조준 토글
+        if (input.e && p.dashCooldown <= 0) {
+            input.aimingDash = !input.aimingDash;
+            input.aimingUlt = false;  // 다른 조준 취소
+            input.e = false;
+        }
+        
+        // 클릭으로 스킬 발동
+        if (input.mouseDown) {
+            const mouseWorldX = camera.x + input.mouseX / CONFIG.SCALE;
+            const mouseWorldY = camera.y + input.mouseY / CONFIG.SCALE;
+            
+            // 궁극기 발동
+            if (input.aimingUlt && p.ultCooldown <= 0 && getTeamLevel(p.team) >= ULT_REQUIRED_LEVEL) {
+                const spec = WEAPON_SPECS[p.weaponType];
+                let ultX, ultY;
+                
+                if (p.weaponType === 'melee') {
+                    ultX = p.x;
+                    ultY = p.y;
+                } else {
+                    ultX = mouseWorldX;
+                    ultY = mouseWorldY;
+                }
+                
+                // 범위 내 적에게 데미지
+                for (const enemy of game.players) {
+                    if (enemy.team === p.team || !enemy.alive) continue;
+                    if (distance({x: ultX, y: ultY}, enemy) < spec.ultRadius) {
+                        const armor = WEAPON_SPECS[enemy.weaponType].armor;
+                        const finalDamage = spec.ultDamage * (1 - armor);
+                        enemy.hp -= finalDamage;
+                        
+                        if (enemy.recalling) {
+                            enemy.recalling = false;
+                            enemy.recallProgress = 0;
+                        }
+                        if (enemy.channeling) {
+                            failChanneling(enemy);
+                        }
+                        
+                        if (enemy.hp <= 0) {
+                            enemy.alive = false;
+                            enemy.hp = 0;
+                            const targetTeamLevel = getTeamLevel(enemy.team);
+                            enemy.respawnTimer = 6 + 2 * targetTeamLevel;
+                            addTeamXP(p.team, CONFIG.KILL_XP);
+                        }
+                    }
+                }
+                
+                game.ultEffects.push({
+                    x: ultX,
+                    y: ultY,
+                    radius: spec.ultRadius,
+                    team: p.team,
+                    timer: 0.5,
+                });
+                
+                p.ultCooldown = spec.ultCool;
+                input.aimingUlt = false;
+                input.mouseDown = false;
+                return;
+            }
+            
+            // 대시 발동
+            if (input.aimingDash && p.dashCooldown <= 0) {
+                const spec = WEAPON_SPECS[p.weaponType];
+                
+                let dirX = mouseWorldX - p.x;
+                let dirY = mouseWorldY - p.y;
+                const len = Math.sqrt(dirX * dirX + dirY * dirY);
+                
+                if (len > 0) {
+                    const dx = (dirX / len) * spec.dashDist;
+                    const dy = (dirY / len) * spec.dashDist;
+                    
+                    const startX = p.x;
+                    const startY = p.y;
+                    
+                    let dashX = p.x + dx;
+                    let dashY = p.y + dy;
+                    
+                    if (!isOnRoad(dashX, dashY)) {
+                        const nearest = getNearestRoadPosition(dashX, dashY);
+                        dashX = nearest.x;
+                        dashY = nearest.y;
+                    }
+                    
+                    dashX = Math.max(5, Math.min(CONFIG.MAP_WIDTH - 5, dashX));
+                    dashY = Math.max(5, Math.min(CONFIG.MAP_HEIGHT - 5, dashY));
+                    
+                    p.x = dashX;
+                    p.y = dashY;
+                    p.dashCooldown = spec.dashCool;
+                    
+                    game.dashEffects.push({
+                        x1: startX,
+                        y1: startY,
+                        x2: dashX,
+                        y2: dashY,
+                        team: p.team,
+                        timer: 0.2,
+                    });
+                }
+                
+                input.aimingDash = false;
+                input.mouseDown = false;
+                return;
+            }
+        }
+        
+        // 이동 방향 계산
+        let vx = 0, vy = 0;
+        if (input.w) vy -= 1;
+        if (input.s) vy += 1;
+        if (input.a) vx -= 1;
+        if (input.d) vx += 1;
+        
+        // 이동 (무기별 속도)
+        const speed = getPlayerSpeed(p);
+        
+        if (vx !== 0 || vy !== 0) {
+            const len = Math.sqrt(vx * vx + vy * vy);
+            vx = (vx / len) * speed;
+            vy = (vy / len) * speed;
+        }
+        
+        const newX = p.x + vx * dt;
+        const newY = p.y + vy * dt;
+        
+        // 도로 위인지 확인
+        if (isOnRoad(newX, newY)) {
+            p.x = newX;
+            p.y = newY;
+        } else {
+            // 도로 밖이면 가장 가까운 도로 위치로
+            const nearest = getNearestRoadPosition(newX, newY);
+            p.x = nearest.x;
+            p.y = nearest.y;
+        }
+        
+        // 맵 경계
+        p.x = Math.max(5, Math.min(CONFIG.MAP_WIDTH - 5, p.x));
+        p.y = Math.max(5, Math.min(CONFIG.MAP_HEIGHT - 5, p.y));
+        
+        // 텔레포트 패널 체크 (이동 후)
+        checkAndTeleport(p);
+        
+        // 공격
+        if (input.mouseDown && p.attackCooldown <= 0) {
+            tryAttack(p);
+        }
+    }
+    
+    // ==================== 유틸리티 ====================
+    function getShieldAtLevel(level) {
+        // S(L) = 40 + 10 × L
+        return CONFIG.SHIELD_BASE + CONFIG.SHIELD_PER_LEVEL * level;
+    }
+    
+    function addTeamXP(teamId, amount) {
+        const team = game.teams[teamId];
+        team.xp += amount;
+        
+        // 레벨업 체크
+        while (team.xp >= CONFIG.XP_PER_LEVEL && team.level < CONFIG.MAX_LEVEL) {
+            team.xp -= CONFIG.XP_PER_LEVEL;
+            team.level++;
+            
+            // 레벨업 시 팀원 전원에게 무기 포인트 +1
+            for (const p of game.players) {
+                if (p.team === teamId) {
+                    p.weaponPoints++;
+                }
+            }
+        }
+        
+        // 최대 레벨이면 XP 캡
+        if (team.level >= CONFIG.MAX_LEVEL) {
+            team.xp = Math.min(team.xp, CONFIG.XP_PER_LEVEL - 1);
+        }
+    }
+    
+    // 무기 레벨 배율 (레벨당 +20%)
+    function getWeaponLevelMult(weaponLevel) {
+        return 1.0 + (weaponLevel - 1) * 0.2;
+    }
+    
+    function getTeamLevel(teamId) {
+        return game.teams[teamId].level;
+    }
+    
+    // ==================== 브레이커 시스템 ====================
+    function getTeamNodeValue(teamId) {
+        // 팀이 소유한 노드의 가치 합계 (가디언 제외)
+        let total = 0;
+        for (const [id, node] of Object.entries(game.nodes)) {
+            if (node.owner === teamId && node.tier !== 'Guardian') {
+                total += NODE_SPECS[node.tier].value;
+            }
+        }
+        return total;
+    }
+    
+    function calculateG() {
+        // G = (노드가치A - 노드가치B) + 2*(생존A - 생존B), 정규화
+        const nodeA = getTeamNodeValue(0);
+        const nodeB = getTeamNodeValue(1);
+        
+        const aliveA = game.players.filter(p => p.team === 0 && p.alive).length;
+        const aliveB = game.players.filter(p => p.team === 1 && p.alive).length;
+        
+        const rawG = (nodeA - nodeB) + 2 * (aliveA - aliveB);
+        return rawG / 20.0; // 정규화 (-1 ~ +1 범위)
+    }
+    
+    function checkStalemate() {
+        // 교착 조건: 한 팀 Lv5 이상 + 스노우볼 상태 + 변화율 < epsilon
+        const TAU = 15;      // 15초
+        const EPSILON = 0.07;
+        
+        const aLv5 = game.teams[0].level >= 5;
+        const bLv5 = game.teams[1].level >= 5;
+        
+        // 최소 한 팀이 Lv5
+        if (!aLv5 && !bLv5) return false;
+        
+        if (game.gHistory.length === 0) return false;
+        
+        const currentG = game.gHistory[game.gHistory.length - 1];
+        
+        // 스노우볼 상태 체크
+        // A팀 Lv5이고 우세(g>0)한데 못 끝냄 / B팀 Lv5이고 우세(g<0)한데 못 끝냄
+        let snowballStuck = (aLv5 && currentG > 0) || (bLv5 && currentG < 0);
+        
+        // 둘 다 Lv5면 어느 쪽이든 교착 가능
+        if (aLv5 && bLv5) snowballStuck = true;
+        
+        if (!snowballStuck) return false;
+        
+        // 변화율 확인 (TAU초 분량 필요)
+        if (game.gHistory.length < TAU) return false;
+        
+        const recent = game.gHistory.slice(-TAU);
+        const halfTau = Math.floor(TAU / 2);
+        
+        // 전반부 변화율
+        const firstHalf = recent.slice(0, halfTau);
+        const dg1 = Math.abs(firstHalf[firstHalf.length - 1] - firstHalf[0]) / halfTau;
+        
+        // 후반부 변화율
+        const secondHalf = recent.slice(halfTau);
+        const dg2 = Math.abs(secondHalf[secondHalf.length - 1] - secondHalf[0]) / halfTau;
+        
+        return dg1 < EPSILON && dg2 < EPSILON;
+    }
+    
+    function spawnBreakerIfNeeded() {
+        if (checkStalemate()) {
+            if (game.firstStalemateTime < 0) {
+                game.firstStalemateTime = game.time;
+            }
+            
+            if (!game.breakerSpawned) {
+                game.breakerSpawned = true;
+                // 브레이커 노드 잠금 해제
+                if (game.nodes['Breaker']) {
+                    game.nodes['Breaker'].locked = false;
+                    console.log('🔓 브레이커 노드 활성화! (교착 감지)');
+                }
+            }
+        }
+    }
+    
+    function getBreakerbuff() {
+        // 클레임 횟수에 따른 버프 계산
+        const BASE = 0.50;   // 50% 초기
+        const STEP = 0.15;   // 클레임당 +15%
+        const MAX = 0.80;    // 최대 80%
+        
+        const count = game.breakerClaimCount;
+        if (count === 0) return 0;
+        
+        const buff = BASE + (count - 1) * STEP;
+        return Math.min(buff, MAX);
+    }
+    
+    function teamHasBreakerbuff(teamId) {
+        // 팀원 중 버프 가진 사람이 있으면 true
+        return game.players.some(p => p.team === teamId && p.alive && p.hasBreakerbuff);
+    }
+    
+    function getPlayerSpeed(p) {
+        const spec = WEAPON_SPECS[p.weaponType];
+        let speed = CONFIG.BASE_SPEED * spec.speedMult;
+        
+        // 브레이커 버프: 이동속도 증가
+        if (p.hasBreakerbuff) {
+            speed *= (1 + getBreakerbuff());
+        }
+        return speed;
+    }
+    
+    function getPlayerRange(p) {
+        return WEAPON_SPECS[p.weaponType].range;
+    }
+    
+    function getPlayerDamage(p) {
+        // 기본 데미지 * 무기 배율 * 무기 레벨 배율
+        const weaponMult = getWeaponLevelMult(p.weaponLevel);
+        return CONFIG.ATTACK_DAMAGE * WEAPON_SPECS[p.weaponType].dpsMult * weaponMult;
+    }
+    
+    function getChannelShield(p) {
+        const teamLevel = getTeamLevel(p.team);
+        const baseShield = getShieldAtLevel(teamLevel);
+        const weaponMult = getWeaponLevelMult(p.weaponLevel);
+        return baseShield * WEAPON_SPECS[p.weaponType].shieldMult * weaponMult;
+    }
+    
+    function isAtBase(p) {
+        // 베이스 근처 20m 이내인지 확인
+        const baseId = p.team === 0 ? 'A_Base' : 'B_Base';
+        const base = game.nodes[baseId];
+        return distance(p, base) < 20;
+    }
+    
+    // 텔레포트 패널 관련 함수
+    function getTeleportPanelStatus(panelId) {
+        // 패널 상태 반환: 'ally' (아군점령, 텔포가능), 'enemy' (적점령), 'neutral' (중립)
+        const panel = TELEPORT_PANELS[panelId];
+        const targetNode = game.nodes[panel.targetNode];
+        
+        if (targetNode.owner === panel.team) {
+            return 'ally';  // 아군이 점령 → 텔포 가능
+        } else if (targetNode.owner === 1 - panel.team) {
+            return 'enemy';  // 적이 점령
+        }
+        return 'neutral';  // 중립
+    }
+    
+    function canTeleport(p, panelId) {
+        // 텔레포트 가능 여부 체크
+        const panel = TELEPORT_PANELS[panelId];
+        // 내 팀 패널인지 확인
+        if (panel.team !== p.team) return false;
+        // 목표 노드가 아군 소유인지 확인
+        const targetNode = game.nodes[panel.targetNode];
+        return targetNode.owner === p.team;
+    }
+    
+    function checkAndTeleport(p) {
+        // 플레이어가 패널 위에 있는지 확인하고 텔포
+        for (const [panelId, panel] of Object.entries(TELEPORT_PANELS)) {
+            // 내 팀 패널만
+            if (panel.team !== p.team) continue;
+            
+            // 패널 위에 있는지 확인
+            if (distance(p, panel) < TELEPORT_PANEL_RADIUS) {
+                // 텔포 가능한지 확인
+                if (canTeleport(p, panelId)) {
+                    // 목표 노드 근처로 텔포
+                    const targetNode = game.nodes[panel.targetNode];
+                    p.x = targetNode.x;
+                    p.y = targetNode.y;
+                    
+                    // AI 상태 갱신
+                    if (p.isAI) {
+                        p.currentNode = panel.targetNode;
+                    }
+                    
+                    return true;  // 텔포됨
+                }
+            }
+        }
+        return false;  // 텔포 안 됨
+    }
+    
+    function getAITeleportTarget(p) {
+        // AI가 베이스에서 사용할 수 있는 텔포 패널 찾기
+        // 우선순위: 적 T2 > 아군 T2 (공격적)
+        const prefix = p.team === 0 ? 'A_TP_' : 'B_TP_';
+        const enemyT2Prefix = p.team === 0 ? 'B_T2' : 'A_T2';
+        
+        let bestPanel = null;
+        let bestScore = -Infinity;
+        
+        for (const [panelId, panel] of Object.entries(TELEPORT_PANELS)) {
+            if (!panelId.startsWith(prefix)) continue;
+            if (!canTeleport(p, panelId)) continue;
+            
+            // 적 T2 우선
+            const targetNode = game.nodes[panel.targetNode];
+            let score = 0;
+            
+            if (panel.targetNode.startsWith(enemyT2Prefix)) {
+                score = 100;  // 적 T2 최우선
+            } else {
+                score = 50;   // 아군 T2
+            }
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestPanel = panelId;
+            }
+        }
+        
+        return bestPanel;
+    }
+    
+    function getPlayerBush(p) {
+        // 플레이어가 있는 부쉬 인덱스 반환 (-1이면 부쉬 밖)
+        for (let i = 0; i < BUSHES.length; i++) {
+            const bush = BUSHES[i];
+            if (distance(p, bush) < bush.radius) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    function isInBush(p) {
+        return getPlayerBush(p) !== -1;
+    }
+    
+    function canSeeTarget(observer, target) {
+        // 같은 팀이면 항상 보임
+        if (observer.team === target.team) return true;
+        
+        // 타겟이 부쉬 밖이면 보임
+        const targetBush = getPlayerBush(target);
+        if (targetBush === -1) return true;
+        
+        // 타겟이 부쉬 안이면, 같은 부쉬에 있어야 보임
+        const observerBush = getPlayerBush(observer);
+        return observerBush === targetBush;
+    }
+    
+    function isVisibleToTeam(target, teamId) {
+        // 아군 중 누구라도 볼 수 있으면 보임
+        for (const p of game.players) {
+            if (p.team !== teamId || !p.alive) continue;
+            // 시야 범위 내
+            if (distance(p, target) < CONFIG.VISION_RANGE) {
+                // 부쉬 체크
+                if (canSeeTarget(p, target)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    // ==================== 채널링 ====================
+    // 다중 채널링 시간 단축 공식
+    function multiChannelFactor(n, A = 4, c = 0.25, k = 5) {
+        if (n <= 0) return 1.0;
+        return c + (1 - c) * Math.exp(-k * Math.pow(n / A, 2));
+    }
+    
+    // 같은 노드를 채널링 중인 아군 수 카운트
+    function countChannelers(nodeId, teamId) {
+        let count = 0;
+        for (const p of game.players) {
+            if (p.team === teamId && p.alive && p.channeling && p.channelTarget === nodeId) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    // 다중 채널링 진행 업데이트 (AI용)
+    function updateMultiChanneling(dt) {
+        // 각 노드별로 채널링 중인 플레이어 처리
+        for (const [nodeId, node] of Object.entries(game.nodes)) {
+            // 이 노드를 채널링 중인 팀별 플레이어 목록
+            const team0Channelers = game.players.filter(p => 
+                p.team === 0 && p.alive && p.channeling && p.channelTarget === nodeId && p.isAI
+            );
+            const team1Channelers = game.players.filter(p => 
+                p.team === 1 && p.alive && p.channeling && p.channelTarget === nodeId && p.isAI
+            );
+            
+            // 팀 0 AI 채널링 진행
+            if (team0Channelers.length > 0) {
+                const factor = multiChannelFactor(team0Channelers.length);
+                const baseTime = NODE_SPECS[node.tier].channelTime;
+                const effectiveTime = baseTime * factor;
+                const progressRate = dt / effectiveTime;
+                
+                for (const p of team0Channelers) {
+                    if (p.hasBreakerbuff) {
+                        p.channelProgress += progressRate / (1 - getBreakerbuff());
+                    } else {
+                        p.channelProgress += progressRate;
+                    }
+                    
+                    if (p.channelProgress >= 1) {
+                        completeChanneling(p);
+                        break;  // 한 명이 완료하면 됨
+                    }
+                }
+            }
+            
+            // 팀 1 AI 채널링 진행
+            if (team1Channelers.length > 0) {
+                const factor = multiChannelFactor(team1Channelers.length);
+                const baseTime = NODE_SPECS[node.tier].channelTime;
+                const effectiveTime = baseTime * factor;
+                const progressRate = dt / effectiveTime;
+                
+                for (const p of team1Channelers) {
+                    if (p.hasBreakerbuff) {
+                        p.channelProgress += progressRate / (1 - getBreakerbuff());
+                    } else {
+                        p.channelProgress += progressRate;
+                    }
+                    
+                    if (p.channelProgress >= 1) {
+                        completeChanneling(p);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    function canAttackNode(node, teamId) {
+        // 잠긴 노드 불가
+        if (node.locked) return false;
+        // 이미 내 팀 노드 불가
+        if (node.owner === teamId) return false;
+        // 베이스 불가
+        if (node.tier === 'Base') return false;
+        // 브레이커는 중립일 때만 가능
+        if (node.tier === 'Breaker' && node.owner !== -1) return false;
+        return true;
+    }
+    
+    function tryStartChanneling(p) {
+        // 가장 가까운 채널링 가능한 노드 찾기
+        let nearestNode = null;
+        let minDist = Infinity;
+        
+        for (const [id, node] of Object.entries(game.nodes)) {
+            // 채널링 가능 여부 체크
+            if (!canAttackNode(node, p.team)) continue;
+            
+            const d = distance(p, node);
+            if (d < CONFIG.CHANNEL_RANGE && d < minDist) {
+                minDist = d;
+                nearestNode = id;
+            }
+        }
+        
+        if (nearestNode) {
+            const node = game.nodes[nearestNode];
+            p.channeling = true;
+            p.channelTarget = nearestNode;
+            p.channelProgress = 0;
+            
+            // 채널링 시간 (브레이커 버프 적용)
+            let baseTime = NODE_SPECS[node.tier].channelTime;
+            if (p.hasBreakerbuff) {
+                baseTime *= (1 - getBreakerbuff());  // 버프만큼 시간 감소
+            }
+            p.channelTime = baseTime;
+            
+            p.channelShield = getChannelShield(p);  // 팀 레벨 + 무기 배율 적용
+            p.maxChannelShield = p.channelShield;  // 최대값 저장 (UI용)
+        }
+    }
+    
+    function cancelChanneling(p) {
+        p.channeling = false;
+        p.channelTarget = null;
+        p.channelProgress = 0;
+        p.channelTime = 0;
+        p.channelShield = 0;
+    }
+    
+    function failChanneling(p) {
+        // 채널링 실패 - 후딜레이 부여
+        const nodeId = p.channelTarget;
+        
+        cancelChanneling(p);
+        p.stunTimer = CONFIG.CHANNEL_FAIL_DELAY;
+        
+        // 같은 노드 채널링 중인 아군 전원 실패
+        if (nodeId) {
+            for (const ally of game.players) {
+                if (ally === p) continue;  // 자기 자신은 이미 처리함
+                if (ally.team === p.team && ally.alive && ally.channeling && ally.channelTarget === nodeId) {
+                    cancelChanneling(ally);
+                    ally.stunTimer = CONFIG.CHANNEL_FAIL_DELAY;
+                }
+            }
+        }
+    }
+    
+    function addNotification(text, color) {
+        game.notifications.push({
+            text: text,
+            color: color,
+            timer: 3,  // 3초 동안 표시
+        });
+        // 최대 5개 유지
+        if (game.notifications.length > 5) {
+            game.notifications.shift();
+        }
+    }
+    
+    function completeChanneling(p) {
+        const nodeId = p.channelTarget;
+        const node = game.nodes[nodeId];
+        const spec = NODE_SPECS[node.tier];
+        
+        // 노드 점령
+        node.owner = p.team;
+        
+        // 알림 추가
+        const teamName = p.team === 0 ? '🔵 Blue' : '🔴 Red';
+        const teamColor = p.team === 0 ? '#3498db' : '#e74c3c';
+        addNotification(`${teamName} captured ${nodeId}!`, teamColor);
+        
+        // 브레이커 노드 점령 시 특수 처리
+        if (nodeId === 'Breaker') {
+            game.breakerClaimCount++;
+            // 살아있는 팀원 전원에게 버프 부여
+            for (const ally of game.players) {
+                if (ally.team === p.team && ally.alive) {
+                    ally.hasBreakerbuff = true;
+                }
+            }
+            console.log(`⚡ ${p.team === 0 ? 'A팀' : 'B팀'} 브레이커 점령! (버프: ${Math.round(getBreakerbuff() * 100)}%)`);
+        }
+        
+        // 노드 점령 XP 획득
+        addTeamXP(p.team, spec.value);
+        
+        // 승리 조건 체크: 적 가디언 점령
+        if (nodeId === 'B_Guardian' && p.team === 0) {
+            game.winner = 0;  // A팀 승리
+        } else if (nodeId === 'A_Guardian' && p.team === 1) {
+            game.winner = 1;  // B팀 승리
+        }
+        
+        // 채널링 종료 - 자기 자신
+        cancelChanneling(p);
+        
+        // 같은 노드 채널링 중인 아군도 완료 (패널티 없음)
+        for (const ally of game.players) {
+            if (ally === p) continue;
+            if (ally.team === p.team && ally.alive && ally.channeling && ally.channelTarget === nodeId) {
+                cancelChanneling(ally);  // 패널티 없이 종료
+            }
+        }
+    }
+    
+    // ==================== 경로 탐색 ====================
+    function findNearestNode(x, y) {
+        // 현재 위치에서 가장 가까운 노드 찾기 (Base 제외 - 경로탐색용)
+        let nearest = null;
+        let minDist = Infinity;
+        
+        for (const [id, node] of Object.entries(game.nodes)) {
+            // Base는 제외 (경로 탐색에 방해됨)
+            if (id === 'A_Base' || id === 'B_Base') continue;
+            
+            const d = Math.sqrt((x - node.x) ** 2 + (y - node.y) ** 2);
+            if (d < minDist) {
+                minDist = d;
+                nearest = id;
+            }
+        }
+        return nearest;
+    }
+    
+    function findPathAStar(startNode, endNode) {
+        // A* 알고리즘
+        if (startNode === endNode) return [startNode];
+        if (!NODE_GRAPH[startNode] || !NODE_GRAPH[endNode]) return [];
+        
+        const startPos = game.nodes[startNode];
+        const endPos = game.nodes[endNode];
+        if (!startPos || !endPos) return [];
+        
+        // 휴리스틱: 유클리드 거리
+        function h(nodeId) {
+            const node = game.nodes[nodeId];
+            if (!node) return Infinity;
+            return Math.sqrt((node.x - endPos.x) ** 2 + (node.y - endPos.y) ** 2);
+        }
+        
+        // 두 노드 간 실제 거리
+        function edgeCost(a, b) {
+            const na = game.nodes[a], nb = game.nodes[b];
+            if (!na || !nb) return Infinity;
+            return Math.sqrt((na.x - nb.x) ** 2 + (na.y - nb.y) ** 2);
+        }
+        
+        const openSet = new Set([startNode]);
+        const cameFrom = {};
+        const gScore = { [startNode]: 0 };
+        const fScore = { [startNode]: h(startNode) };
+        
+        while (openSet.size > 0) {
+            // f값 최소인 노드 선택
+            let current = null, minF = Infinity;
+            for (const node of openSet) {
+                const f = fScore[node] ?? Infinity;
+                if (f < minF) { minF = f; current = node; }
+            }
+            
+            if (current === endNode) {
+                // 경로 복원
+                const path = [current];
+                while (cameFrom[path[0]]) {
+                    path.unshift(cameFrom[path[0]]);
+                }
+                return path;
+            }
+            
+            openSet.delete(current);
+            
+            for (const neighbor of NODE_GRAPH[current] || []) {
+                const tentativeG = (gScore[current] ?? Infinity) + edgeCost(current, neighbor);
+                
+                if (tentativeG < (gScore[neighbor] ?? Infinity)) {
+                    cameFrom[neighbor] = current;
+                    gScore[neighbor] = tentativeG;
+                    fScore[neighbor] = tentativeG + h(neighbor);
+                    openSet.add(neighbor);
+                }
+            }
+        }
+        
+        return []; // 경로 없음
+    }
+    
+    function getNextWaypoint(p, targetNodeId) {
+        // 현재 위치에서 타겟 노드까지 다음 웨이포인트 반환
+        const currentNode = findNearestNode(p.x, p.y);
+        if (!currentNode) return null;
+        
+        const targetNode = game.nodes[targetNodeId];
+        if (!targetNode) return null;
+        
+        // 이미 타겟 노드 충분히 가까우면 타겟으로
+        const distToTarget = Math.sqrt((p.x - targetNode.x) ** 2 + (p.y - targetNode.y) ** 2);
+        if (distToTarget < 5) {
+            return targetNode;
+        }
+        
+        if (currentNode === targetNodeId) {
+            return targetNode;
+        }
+        
+        const path = findPathAStar(currentNode, targetNodeId);
+        if (path.length < 2) {
+            // 경로 없으면 현재 노드 위치로 (안전)
+            return game.nodes[currentNode];
+        }
+        
+        // 다음 노드가 웨이포인트
+        const nextNodeId = path[1];
+        return game.nodes[nextNodeId];
+    }
+
+    // ==================== AI ====================
+    
+    // 노드 간 다음 경로 (하드코딩) - getNextNode(from, to)
+    const NODE_ROUTES = {
+        // A팀 전진 방향 (아래 → 위)
+        'A_Guardian': { 'A_T3': 'A_T3', 'A_T2_L': 'A_T3', 'A_T2_R': 'A_T3', 'T1_L': 'A_T3', 'T1_R': 'A_T3', 'Breaker': 'A_T3', 'B_T2_L': 'A_T3', 'B_T2_R': 'A_T3', 'B_T3': 'A_T3', 'B_Guardian': 'A_T3' },
+        'A_T3': { 'A_T2_L': 'A_T2_L', 'A_T2_R': 'A_T2_R', 'T1_L': 'A_T2_L', 'T1_R': 'A_T2_R', 'Breaker': 'Breaker', 'B_T2_L': 'A_T2_L', 'B_T2_R': 'A_T2_R', 'B_T3': 'Breaker', 'B_Guardian': 'Breaker', 'A_Guardian': 'A_Guardian' },
+        'A_T2_L': { 'T1_L': 'T1_L', 'Breaker': 'Breaker', 'B_T2_L': 'T1_L', 'B_T3': 'T1_L', 'B_Guardian': 'T1_L', 'A_T3': 'A_T3', 'A_Guardian': 'A_T3', 'T1_R': 'Breaker', 'A_T2_R': 'Breaker', 'B_T2_R': 'Breaker' },
+        'A_T2_R': { 'T1_R': 'T1_R', 'Breaker': 'Breaker', 'B_T2_R': 'T1_R', 'B_T3': 'T1_R', 'B_Guardian': 'T1_R', 'A_T3': 'A_T3', 'A_Guardian': 'A_T3', 'T1_L': 'Breaker', 'A_T2_L': 'Breaker', 'B_T2_L': 'Breaker' },
+        'T1_L': { 'B_T2_L': 'B_T2_L', 'B_T3': 'B_T2_L', 'B_Guardian': 'B_T2_L', 'Breaker': 'Breaker', 'A_T2_L': 'A_T2_L', 'A_T3': 'A_T2_L', 'A_Guardian': 'A_T2_L', 'T1_R': 'Breaker', 'A_T2_R': 'Breaker', 'B_T2_R': 'Breaker' },
+        'T1_R': { 'B_T2_R': 'B_T2_R', 'B_T3': 'B_T2_R', 'B_Guardian': 'B_T2_R', 'Breaker': 'Breaker', 'A_T2_R': 'A_T2_R', 'A_T3': 'A_T2_R', 'A_Guardian': 'A_T2_R', 'T1_L': 'Breaker', 'A_T2_L': 'Breaker', 'B_T2_L': 'Breaker' },
+        'Breaker': { 'A_T3': 'A_T3', 'B_T3': 'B_T3', 'A_T2_L': 'A_T2_L', 'A_T2_R': 'A_T2_R', 'B_T2_L': 'B_T2_L', 'B_T2_R': 'B_T2_R', 'T1_L': 'T1_L', 'T1_R': 'T1_R', 'A_Guardian': 'A_T3', 'B_Guardian': 'B_T3' },
+        'B_T2_L': { 'B_T3': 'B_T3', 'B_Guardian': 'B_T3', 'T1_L': 'T1_L', 'Breaker': 'Breaker', 'A_T2_L': 'T1_L', 'A_T3': 'T1_L', 'A_Guardian': 'T1_L', 'T1_R': 'Breaker', 'A_T2_R': 'Breaker', 'B_T2_R': 'Breaker' },
+        'B_T2_R': { 'B_T3': 'B_T3', 'B_Guardian': 'B_T3', 'T1_R': 'T1_R', 'Breaker': 'Breaker', 'A_T2_R': 'T1_R', 'A_T3': 'T1_R', 'A_Guardian': 'T1_R', 'T1_L': 'Breaker', 'A_T2_L': 'Breaker', 'B_T2_L': 'Breaker' },
+        'B_T3': { 'B_T2_L': 'B_T2_L', 'B_T2_R': 'B_T2_R', 'T1_L': 'B_T2_L', 'T1_R': 'B_T2_R', 'Breaker': 'Breaker', 'A_T2_L': 'B_T2_L', 'A_T2_R': 'B_T2_R', 'A_T3': 'Breaker', 'A_Guardian': 'Breaker', 'B_Guardian': 'B_Guardian' },
+        'B_Guardian': { 'B_T3': 'B_T3', 'B_T2_L': 'B_T3', 'B_T2_R': 'B_T3', 'T1_L': 'B_T3', 'T1_R': 'B_T3', 'Breaker': 'B_T3', 'A_T2_L': 'B_T3', 'A_T2_R': 'B_T3', 'A_T3': 'B_T3', 'A_Guardian': 'B_T3' },
+    };
+    
+    function getNextNode(fromId, toId) {
+        if (fromId === toId) return toId;
+        return NODE_ROUTES[fromId]?.[toId] || toId;
+    }
+    
+    // 현재 위치에서 가장 가까운 노드 (Base 제외)
+    function findCurrentNode(p) {
+        let nearest = null, minDist = Infinity;
+        for (const [id, node] of Object.entries(game.nodes)) {
+            if (id === 'A_Base' || id === 'B_Base') continue;
+            const d = distance(p, node);
+            if (d < minDist) { minDist = d; nearest = id; }
+        }
+        return nearest;
+    }
+    
+    // 노드 중앙으로 이동
+    function moveToNode(p, nodeId, speed, dt) {
+        const node = game.nodes[nodeId];
+        if (!node) return;
+        
+        const dx = node.x - p.x;
+        const dy = node.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 3) {
+            // 도착 - 현재 노드 업데이트
+            p.currentNode = nodeId;
+            return;
+        }
+        
+        // 이동
+        const newX = p.x + (dx / dist) * speed * dt;
+        const newY = p.y + (dy / dist) * speed * dt;
+        
+        // 도로 체크
+        if (isOnRoad(newX, newY)) {
+            p.x = newX;
+            p.y = newY;
+        } else {
+            // 도로 밖이면 가장 가까운 도로로
+            const nearest = getNearestRoadPosition(newX, newY);
+            p.x = nearest.x;
+            p.y = nearest.y;
+        }
+        
+        // 맵 경계
+        p.x = Math.max(15, Math.min(CONFIG.MAP_WIDTH - 15, p.x));
+        p.y = Math.max(15, Math.min(CONFIG.MAP_HEIGHT - 15, p.y));
+    }
+    
+    // 자유에너지 점수
+    function feScore(situation, ideal, beta = 2.0) {
+        let dist = 0;
+        for (const k in ideal) {
+            dist += ((situation[k] || 0) - ideal[k]) ** 2;
+        }
+        return Math.exp(-beta * dist);
+    }
+    
+    // 확률적 선택
+    function feSelect(options) {
+        const total = options.reduce((sum, o) => sum + o.score, 0);
+        if (total <= 0) return options[0]?.action;
+        const r = Math.random() * total;
+        let acc = 0;
+        for (const o of options) {
+            acc += o.score;
+            if (r < acc) return o.action;
+        }
+        return options[0]?.action;
+    }
+    
+    // AI 상황 감지
+    function detectSituation(p) {
+        const enemies = game.players.filter(e => e.team !== p.team && e.alive);
+        const allies = game.players.filter(a => a.team === p.team && a.alive && a.id !== p.id);
+        
+        let nearestEnemy = null, enemyDist = Infinity;
+        for (const e of enemies) {
+            if (!canSeeTarget(p, e)) continue;
+            const d = distance(p, e);
+            if (d < enemyDist) { enemyDist = d; nearestEnemy = e; }
+        }
+        
+        const nearbyAllies = allies.filter(a => distance(p, a) < 25).length;
+        const nearbyEnemies = enemies.filter(e => distance(p, e) < 25 && canSeeTarget(p, e)).length;
+        
+        return {
+            hpRatio: p.hp / p.maxHp,
+            nearestEnemy,
+            enemyDist,
+            nearbyAllies,
+            nearbyEnemies,
+            advantage: (nearbyAllies + 1) / Math.max(nearbyEnemies, 1),
+            aliveAllies: allies.length + 1,
+        };
+    }
+    
+    // 상황별 자유에너지 판단
+    function feDecideAction(p, sit) {
+        const options = [];
+        
+        // 1. 후퇴 (HP 낮고 불리)
+        if (sit.hpRatio < 0.4) {
+            options.push({
+                action: 'retreat',
+                score: feScore(
+                    { hp: sit.hpRatio, danger: sit.nearbyEnemies / 3 },
+                    { hp: 0.15, danger: 0.8 }
+                ) * 3
+            });
+        }
+        
+        // 2. 귀환 (HP 낮고 안전)
+        if (sit.hpRatio < 0.4 && sit.enemyDist > 30) {
+            options.push({
+                action: 'recall',
+                score: feScore(
+                    { hp: sit.hpRatio, safe: sit.enemyDist > 30 ? 1 : 0 },
+                    { hp: 0.2, safe: 1 }
+                ) * 2.5
+            });
+        }
+        
+        // 3. 공격 (적 발견 + 유리)
+        if (sit.nearestEnemy && sit.enemyDist < 20) {
+            options.push({
+                action: 'attack',
+                score: feScore(
+                    { hp: sit.hpRatio, advantage: Math.min(sit.advantage, 2) / 2 },
+                    { hp: 0.5, advantage: 0.7 }
+                ) * 2
+            });
+        }
+        
+        // 4. 채널링 (노드 근처 + 안전)
+        options.push({
+            action: 'channel',
+            score: feScore(
+                { hp: sit.hpRatio, safe: sit.enemyDist > 15 ? 1 : 0 },
+                { hp: 0.4, safe: 0.9 }
+            ) * 2
+        });
+        
+        // 5. 계속 이동
+        options.push({ action: 'move', score: 1.0 });
+        
+        return feSelect(options);
+    }
+    
+    // 다음 목표 노드 선택 (자유에너지)
+    function feSelectTargetNode(p) {
+        const breaker = game.nodes['Breaker'];
+        const breakerActive = game.breakerSpawned && breaker?.owner === -1;
+        const aliveAllies = game.players.filter(x => x.team === p.team && x.alive).length;
+        
+        // 브레이커 우선 (활성화 + 아군 3명 이상)
+        if (breakerActive && aliveAllies >= 3 && canAttackNode(breaker, p.team)) {
+            return 'Breaker';
+        }
+        
+        // AI별 고정 라인 할당 (id 기반)
+        // 팀 A: 0,1,2,3 → 팀 B: 4,5,6,7
+        // 짝수 id = 왼쪽 라인, 홀수 id = 오른쪽 라인
+        const isLeftLane = p.id % 2 === 0;
+        
+        // 라인별 노드 순서 (공격 방향)
+        const laneNodes = p.team === 0 
+            ? (isLeftLane 
+                ? ['A_T2_L', 'T1_L', 'B_T2_L', 'B_T3', 'B_Guardian']
+                : ['A_T2_R', 'T1_R', 'B_T2_R', 'B_T3', 'B_Guardian'])
+            : (isLeftLane 
+                ? ['B_T2_L', 'T1_L', 'A_T2_L', 'A_T3', 'A_Guardian']
+                : ['B_T2_R', 'T1_R', 'A_T2_R', 'A_T3', 'A_Guardian']);
+        
+        // 라인에서 공격 가능한 첫 번째 노드 선택
+        for (const nodeId of laneNodes) {
+            const node = game.nodes[nodeId];
+            if (node && canAttackNode(node, p.team)) {
+                return nodeId;
+            }
+        }
+        
+        // 라인 노드가 다 점령됐으면 적 가디언
+        const enemyGuardian = p.team === 0 ? 'B_Guardian' : 'A_Guardian';
+        if (canAttackNode(game.nodes[enemyGuardian], p.team)) {
+            return enemyGuardian;
+        }
+        
+        // 기본값
+        return isLeftLane ? 'T1_L' : 'T1_R';
+    }
+    
+    // ==================== AI 스킬 사용 ====================
+    
+    // AI 대시 - 방향과 함께 사용
+    function aiDash(p, dirX, dirY) {
+        if (p.dashCooldown > 0) return false;
+        
+        const spec = WEAPON_SPECS[p.weaponType];
+        const len = Math.sqrt(dirX * dirX + dirY * dirY);
+        if (len === 0) return false;
+        
+        const startX = p.x;
+        const startY = p.y;
+        
+        const dx = (dirX / len) * spec.dashDist;
+        const dy = (dirY / len) * spec.dashDist;
+        
+        let dashX = p.x + dx;
+        let dashY = p.y + dy;
+        
+        // 도로 범위 내로 제한
+        if (!isOnRoad(dashX, dashY)) {
+            const nearest = getNearestRoadPosition(dashX, dashY);
+            dashX = nearest.x;
+            dashY = nearest.y;
+        }
+        
+        // 맵 경계
+        dashX = Math.max(5, Math.min(CONFIG.MAP_WIDTH - 5, dashX));
+        dashY = Math.max(5, Math.min(CONFIG.MAP_HEIGHT - 5, dashY));
+        
+        p.x = dashX;
+        p.y = dashY;
+        p.dashCooldown = spec.dashCool;
+        
+        // 대시 이펙트 추가
+        game.dashEffects.push({
+            x1: startX,
+            y1: startY,
+            x2: dashX,
+            y2: dashY,
+            team: p.team,
+            timer: 0.2,
+        });
+        
+        return true;
+    }
+    
+    // AI 궁극기 - 최적 위치에 사용
+    function aiUseUlt(p) {
+        if (p.ultCooldown > 0) return false;
+        if (getTeamLevel(p.team) < ULT_REQUIRED_LEVEL) return false;
+        
+        const spec = WEAPON_SPECS[p.weaponType];
+        let ultX, ultY;
+        
+        // 근처 적 찾기
+        const nearbyEnemies = [];
+        for (const enemy of game.players) {
+            if (enemy.team === p.team || !enemy.alive) continue;
+            if (!canSeeTarget(p, enemy)) continue;
+            const d = distance(p, enemy);
+            if (d < 20) {
+                nearbyEnemies.push({ enemy, dist: d });
+            }
+        }
+        
+        if (nearbyEnemies.length === 0) return false;
+        
+        if (p.weaponType === 'melee') {
+            // 근접: 내 위치에 사용 - 적이 1명이라도 범위 내에 있어야
+            const inRange = nearbyEnemies.filter(e => e.dist < spec.ultRadius);
+            if (inRange.length === 0) return false;
+            ultX = p.x;
+            ultY = p.y;
+        } else {
+            // 원거리: 적 밀집 지점에 사용
+            // 가장 가까운 적 위치 기준
+            nearbyEnemies.sort((a, b) => a.dist - b.dist);
+            const target = nearbyEnemies[0].enemy;
+            ultX = target.x;
+            ultY = target.y;
+        }
+        
+        // 범위 내 적에게 데미지
+        for (const enemy of game.players) {
+            if (enemy.team === p.team || !enemy.alive) continue;
+            if (distance({ x: ultX, y: ultY }, enemy) < spec.ultRadius) {
+                enemy.hp -= spec.ultDamage;
+                
+                // 피격 시 귀환/채널링 취소
+                if (enemy.recalling) {
+                    enemy.recalling = false;
+                    enemy.recallProgress = 0;
+                }
+                if (enemy.channeling) {
+                    enemy.channelShield -= spec.ultDamage;
+                    if (enemy.channelShield <= 0) {
+                        failChanneling(enemy);
+                    }
+                }
+                
+                // 킬 체크
+                if (enemy.hp <= 0) {
+                    enemy.hp = 0;
+                    enemy.alive = false;
+                    const targetTeamLevel = getTeamLevel(enemy.team);
+                    enemy.respawnTimer = 6 + 2 * targetTeamLevel;
+                    addTeamXP(p.team, CONFIG.KILL_XP);
+                }
+            }
+        }
+        
+        // 궁 이펙트
+        game.ultEffects.push({
+            x: ultX,
+            y: ultY,
+            radius: spec.ultRadius,
+            team: p.team,
+            timer: 0.5,
+        });
+        
+        p.ultCooldown = spec.ultCool;
+        return true;
+    }
+    
+    // 공격 실행
+    function aiDoAttack(p, target, dt) {
+        if (!target || !target.alive) return;
+        const range = getPlayerRange(p);
+        const d = distance(p, target);
+        
+        // 범위 밖이면 접근
+        if (d > range * 0.9) {
+            const dx = target.x - p.x;
+            const dy = target.y - p.y;
+            const speed = getPlayerSpeed(p);
+            p.x += (dx / d) * speed * dt;
+            p.y += (dy / d) * speed * dt;
+        }
+        
+        // 공격
+        if (d <= range && p.attackCooldown <= 0) {
+            attack(p, target);
+        }
+    }
+    
+    // 채널링 시작
+    function aiStartChanneling(p, nodeId) {
+        const node = game.nodes[nodeId];
+        if (!node || !canAttackNode(node, p.team)) return false;
+        if (distance(p, node) > CONFIG.CHANNEL_RANGE) return false;
+        
+        p.channeling = true;
+        p.channelTarget = nodeId;
+        p.channelProgress = 0;  // 0~1 기반
+        p.channelTime = NODE_SPECS[node.tier].channelTime;  // UI 표시용 (실제 시간은 다중채널링으로 계산)
+        p.channelShield = getChannelShield(p);
+        p.maxChannelShield = p.channelShield;
+        return true;
+    }
+    
+    // ==================== 메인 AI ====================
+    function updateAI(p, dt) {
+        const speed = getPlayerSpeed(p);
+        
+        // AI 무기 레벨 투자 (포인트 있으면 바로 투자)
+        if (p.weaponPoints > 0) {
+            p.weaponLevel++;
+            p.weaponPoints--;
+        }
+        
+        // 상태 처리
+        if (p.stunTimer > 0) { p.stunTimer -= dt; return; }
+        
+        if (p.recalling) {
+            p.recallProgress += dt;
+            if (p.recallProgress >= CONFIG.RECALL_TIME) {
+                const base = game.nodes[p.team === 0 ? 'A_Base' : 'B_Base'];
+                p.x = base.x; p.y = base.y;
+                p.hp = p.maxHp;
+                p.recalling = false;
+                p.currentNode = p.team === 0 ? 'A_Guardian' : 'B_Guardian';
+                p.targetNode = null;
+            }
+            return;
+        }
+        
+        if (p.channeling) {
+            // 채널링 진행은 updateMultiChanneling()에서 처리
+            return;
+        }
+        
+        // 베이스에 있을 때 텔포 패널 사용
+        if (isAtBase(p)) {
+            const tpPanel = getAITeleportTarget(p);
+            if (tpPanel) {
+                const panel = TELEPORT_PANELS[tpPanel];
+                // 패널로 이동
+                const dx = panel.x - p.x;
+                const dy = panel.y - p.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                
+                if (d < TELEPORT_PANEL_RADIUS) {
+                    // 패널 위에 있으면 텔포
+                    checkAndTeleport(p);
+                    return;
+                } else {
+                    // 패널로 이동
+                    p.x += (dx / d) * speed * dt;
+                    p.y += (dy / d) * speed * dt;
+                    return;
+                }
+            }
+        }
+        
+        // 상황 감지
+        const sit = detectSituation(p);
+        
+        // ===== 상황 발생: 자유에너지로 행동 결정 =====
+        const inCombat = sit.nearestEnemy && sit.enemyDist < 20;
+        const lowHP = sit.hpRatio < 0.4;
+        
+        // ===== 적 없으면 채널링 우선 =====
+        if (!inCombat) {
+            // 근처 채널링 가능한 노드 찾기
+            for (const [id, node] of Object.entries(game.nodes)) {
+                if (!canAttackNode(node, p.team)) continue;
+                const d = distance(p, node);
+                
+                // 채널링 범위 안이면 바로 채널링
+                if (d < CONFIG.CHANNEL_RANGE) {
+                    aiStartChanneling(p, id);
+                    return;
+                }
+                
+                // 인식 범위 안이면 노드로 이동
+                if (d < CONFIG.AI_NODE_DETECT_RANGE) {
+                    const dx = node.x - p.x;
+                    const dy = node.y - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0) {
+                        p.x += (dx / dist) * speed * dt;
+                        p.y += (dy / dist) * speed * dt;
+                    }
+                    return;
+                }
+            }
+        }
+        
+        if (lowHP || inCombat) {
+            const action = feDecideAction(p, sit);
+            
+            if (action === 'retreat') {
+                // 후퇴 시 목표 초기화
+                p.targetNode = null;
+                const baseNode = p.team === 0 ? 'A_Guardian' : 'B_Guardian';
+                
+                // HP 30% 이하 + 적 가까우면 대시로 도주
+                if (sit.hpRatio < 0.3 && sit.nearestEnemy && sit.enemyDist < 10) {
+                    const dx = p.x - sit.nearestEnemy.x;
+                    const dy = p.y - sit.nearestEnemy.y;
+                    aiDash(p, dx, dy);
+                }
+                
+                moveToNode(p, baseNode, speed * 1.2, dt);
+                if (sit.nearestEnemy && sit.enemyDist <= getPlayerRange(p) && p.attackCooldown <= 0) {
+                    attack(p, sit.nearestEnemy);
+                }
+                return;
+            }
+            
+            if (action === 'recall') {
+                p.recalling = true;
+                p.recallProgress = 0;
+                return;
+            }
+            
+            if (action === 'attack' && sit.nearestEnemy) {
+                // 궁극기 사용 조건: 적 2명 이상 근처에 있거나, 적 HP 낮을 때
+                if (sit.nearbyEnemies >= 2 || (sit.nearestEnemy.hp / sit.nearestEnemy.maxHp < 0.4)) {
+                    aiUseUlt(p);
+                }
+                
+                // 적이 도망가면 대시로 추격 (원거리는 덜 공격적)
+                const chaseThreshold = p.weaponType === 'melee' ? 0.8 : 0.95;
+                if (sit.enemyDist > getPlayerRange(p) * chaseThreshold && sit.advantage > 1.2) {
+                    const dx = sit.nearestEnemy.x - p.x;
+                    const dy = sit.nearestEnemy.y - p.y;
+                    aiDash(p, dx, dy);
+                }
+                
+                aiDoAttack(p, sit.nearestEnemy, dt);
+                return;
+            }
+        }
+        
+        // ===== 평상시: 노드 중앙 따라 이동 =====
+        
+        // 목표 노드 없으면 선택
+        if (!p.targetNode) {
+            p.targetNode = feSelectTargetNode(p);
+        }
+        
+        // 현재 노드 없으면 찾기
+        if (!p.currentNode) {
+            p.currentNode = findCurrentNode(p);
+        }
+        
+        // 목표 노드 정보
+        const targetNodeObj = game.nodes[p.targetNode];
+        
+        // 목표 노드 도착 체크
+        if (targetNodeObj && distance(p, targetNodeObj) < CONFIG.CHANNEL_RANGE) {
+            // 채널링 가능하면 시도
+            if (canAttackNode(targetNodeObj, p.team)) {
+                aiStartChanneling(p, p.targetNode);
+                return;
+            } else {
+                // 채널링 불가 (이미 점령됨 등) → 현재 노드 갱신 + 새 목표 선택
+                p.currentNode = p.targetNode;
+                p.targetNode = feSelectTargetNode(p);
+                // return 하지 않고 계속 진행해서 바로 이동 시작
+            }
+        }
+        
+        // 목표 노드가 더 이상 공격 불가면 새 목표 선택
+        if (p.targetNode && !canAttackNode(game.nodes[p.targetNode], p.team)) {
+            p.targetNode = feSelectTargetNode(p);
+        }
+        
+        // 다음 노드로 이동
+        if (p.currentNode && p.targetNode && p.currentNode !== p.targetNode) {
+            const nextNode = getNextNode(p.currentNode, p.targetNode);
+            moveToNode(p, nextNode, speed, dt);
+        } else if (p.targetNode) {
+            moveToNode(p, p.targetNode, speed, dt);
+        }
+    }
+    function findNearestEnemy(p) {
+        let nearest = null;
+        let minDist = Infinity;
+        
+        for (const other of game.players) {
+            if (other.team === p.team || !other.alive) continue;
+            // 부쉬 안에 있으면 볼 수 없음
+            if (!canSeeTarget(p, other)) continue;
+            const d = distance(p, other);
+            if (d < minDist) {
+                minDist = d;
+                nearest = other;
+            }
+        }
+        return nearest;
+    }
+    
+    function tryAttack(p) {
+        // 마우스 방향으로 범위 내 적 찾기
+        const target = findNearestEnemy(p);
+        if (target && distance(p, target) < getPlayerRange(p)) {
+            attack(p, target);
+        }
+    }
+    
+    function attack(attacker, target) {
+        attacker.attackCooldown = CONFIG.ATTACK_COOLDOWN;
+        const damage = getPlayerDamage(attacker);
+        
+        // 공격 이펙트 추가
+        game.attackEffects.push({
+            x1: attacker.x,
+            y1: attacker.y,
+            x2: target.x,
+            y2: target.y,
+            team: attacker.team,
+            timer: 0.15,  // 0.15초 지속
+        });
+        
+        // 채널링 중이면 보호막 먼저 공격 (방어력 적용 X)
+        if (target.channeling && target.channelShield > 0) {
+            target.channelShield -= damage;
+            
+            // 보호막 깨짐 → 채널링 실패 + 후딜레이
+            if (target.channelShield <= 0) {
+                failChanneling(target);
+            }
+            return;  // 보호막 공격은 HP 안 깎음
+        }
+        
+        // 피격 시 귀환 취소
+        if (target.recalling) {
+            target.recalling = false;
+            target.recallProgress = 0;
+        }
+        
+        // 방어력 적용된 데미지
+        const armor = WEAPON_SPECS[target.weaponType].armor;
+        const finalDamage = damage * (1 - armor);
+        
+        target.hp -= finalDamage;
+        
+        if (target.hp <= 0) {
+            target.alive = false;
+            target.hp = 0;
+            
+            // 리스폰 타임: 6 + 2 × 팀레벨
+            const targetTeamLevel = getTeamLevel(target.team);
+            target.respawnTimer = 6 + 2 * targetTeamLevel;
+            
+            cancelChanneling(target);
+            
+            // 킬 XP 획득
+            addTeamXP(attacker.team, CONFIG.KILL_XP);
+        }
+    }
+    
+    function respawn(p) {
+        p.alive = true;
+        p.hp = p.maxHp;
+        p.recalling = false;
+        p.recallProgress = 0;
+        
+        // AI 상태 리셋
+        p.currentNode = p.team === 0 ? 'A_Guardian' : 'B_Guardian';
+        p.targetNode = null;
+        
+        // 스폰 위치 - 베이스 정중앙
+        const base = game.nodes[p.team === 0 ? 'A_Base' : 'B_Base'];
+        p.x = base.x;
+        p.y = base.y;
+    }
+    
+    function distance(a, b) {
+        return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+    }
+    
+    // ==================== 렌더링 ====================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+    
+    function toPixel(x, y) {
+        return [
+            (x - camera.x) * CONFIG.SCALE,
+            (y - camera.y) * CONFIG.SCALE
+        ];
+    }
+    
+    function render() {
+        // 배경
+        ctx.fillStyle = '#0d1117';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // 도로 영역 (15m 폭)
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(40, 44, 52, 0.8)';
+        ctx.lineWidth = CONFIG.LANE_WIDTH * CONFIG.SCALE;
+        for (const [from, to] of NODE_CONNECTIONS) {
+            const n1 = game.nodes[from];
+            const n2 = game.nodes[to];
+            const [x1, y1] = toPixel(n1.x, n1.y);
+            const [x2, y2] = toPixel(n2.x, n2.y);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+        
+        // 도로 가장자리 라인
+        ctx.strokeStyle = 'rgba(60, 64, 72, 0.5)';
+        ctx.lineWidth = CONFIG.LANE_WIDTH * CONFIG.SCALE;
+        ctx.setLineDash([10, 10]);
+        for (const [from, to] of NODE_CONNECTIONS) {
+            const n1 = game.nodes[from];
+            const n2 = game.nodes[to];
+            const [x1, y1] = toPixel(n1.x, n1.y);
+            const [x2, y2] = toPixel(n2.x, n2.y);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        
+        // 도로 중앙선
+        ctx.strokeStyle = '#2a2a3a';
+        ctx.lineWidth = 2;
+        for (const [from, to] of NODE_CONNECTIONS) {
+            const n1 = game.nodes[from];
+            const n2 = game.nodes[to];
+            const [x1, y1] = toPixel(n1.x, n1.y);
+            const [x2, y2] = toPixel(n2.x, n2.y);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+        
+        // 부쉬
+        for (const bush of BUSHES) {
+            const [cx, cy] = toPixel(bush.x, bush.y);
+            const radius = bush.radius * CONFIG.SCALE;
+            
+            // 화면 밖이면 스킵
+            if (cx < -100 || cx > CANVAS_WIDTH + 100 || cy < -100 || cy > CANVAS_HEIGHT + 100) continue;
+            
+            // 부쉬 배경 (초록 그라데이션)
+            const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+            gradient.addColorStop(0, 'rgba(39, 174, 96, 0.6)');
+            gradient.addColorStop(0.7, 'rgba(39, 174, 96, 0.4)');
+            gradient.addColorStop(1, 'rgba(39, 174, 96, 0.1)');
+            
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // 부쉬 테두리 (점선)
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(39, 174, 96, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // 노드
+        for (const [id, node] of Object.entries(game.nodes)) {
+            const [cx, cy] = toPixel(node.x, node.y);
+            
+            // 화면 밖이면 스킵
+            if (cx < -100 || cx > CANVAS_WIDTH + 100 || cy < -100 || cy > CANVAS_HEIGHT + 100) continue;
+            
+            const radius = NODE_SPECS[node.tier].radius * CONFIG.SCALE;
+            const isLocked = node.locked;
+            
+            // 팀 색상
+            let color;
+            if (node.owner === 0) color = '#3498db';
+            else if (node.owner === 1) color = '#e74c3c';
+            else if (node.tier === 'Breaker') color = '#9b59b6';
+            else color = '#555';
+            
+            // 잠긴 노드는 어둡게
+            if (isLocked) {
+                color = '#333';
+            }
+            
+            // 외곽
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // 내부
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fill();
+            
+            // 잠긴 노드는 자물쇠 아이콘 표시
+            if (isLocked) {
+                ctx.fillStyle = '#666';
+                ctx.font = 'bold 16px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('🔒', cx, cy + 5);
+            } else {
+                // 중앙점 (채널링 위치)
+                ctx.beginPath();
+                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                // 중앙 십자
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cx - 8, cy);
+                ctx.lineTo(cx + 8, cy);
+                ctx.moveTo(cx, cy - 8);
+                ctx.lineTo(cx, cy + 8);
+                ctx.stroke();
+                
+                // 채널링 범위 표시 (1m = 25px)
+                ctx.beginPath();
+                ctx.arc(cx, cy, CONFIG.CHANNEL_RANGE * CONFIG.SCALE, 0, Math.PI * 2);
+                ctx.strokeStyle = color + '40';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // 노드 공격 범위 표시 (DPS > 0인 경우)
+                const spec = NODE_SPECS[node.tier];
+                if (spec.dps > 0 && spec.range > 0) {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, spec.range * CONFIG.SCALE, 0, Math.PI * 2);
+                    ctx.strokeStyle = color + '20';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([10, 5]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+            
+            // 티어 텍스트
+            ctx.fillStyle = '#8b949e';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(node.tier, cx, cy + radius + 15);
+        }
+        
+        // 텔레포트 패널 렌더링
+        for (const [panelId, panel] of Object.entries(TELEPORT_PANELS)) {
+            const [cx, cy] = toPixel(panel.x, panel.y);
+            const radius = TELEPORT_PANEL_RADIUS * CONFIG.SCALE;
+            
+            // 화면 밖이면 스킵
+            if (cx < -50 || cx > CANVAS_WIDTH + 50 || cy < -50 || cy > CANVAS_HEIGHT + 50) continue;
+            
+            // 패널 상태 확인
+            const status = getTeleportPanelStatus(panelId);
+            const targetNode = game.nodes[panel.targetNode];
+            
+            // 색상 결정
+            let color, glowColor;
+            if (status === 'ally') {
+                color = '#3498db';  // 파랑 (아군 점령, 텔포 가능)
+                glowColor = 'rgba(52, 152, 219, 0.4)';
+            } else if (status === 'enemy') {
+                color = '#e74c3c';  // 빨강 (적 점령)
+                glowColor = 'rgba(231, 76, 60, 0.2)';
+            } else {
+                color = '#555';     // 회색 (중립)
+                glowColor = 'rgba(85, 85, 85, 0.2)';
+            }
+            
+            // 글로우 효과 (텔포 가능할 때만)
+            if (status === 'ally') {
+                const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 1.5);
+                gradient.addColorStop(0, glowColor);
+                gradient.addColorStop(1, 'transparent');
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+            
+            // 패널 원
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = color + '30';  // 반투명
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 텔포 아이콘 (화살표)
+            ctx.fillStyle = color;
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⬆', cx, cy);
+            
+            // 목표 노드 이름 (작게)
+            ctx.fillStyle = '#8b949e';
+            ctx.font = '10px monospace';
+            ctx.fillText(panel.targetNode.replace('_', ''), cx, cy + radius + 10);
+        }
+        
+        // 공격 이펙트 (빔)
+        for (const atk of game.attackEffects) {
+            const [x1, y1] = toPixel(atk.x1, atk.y1);
+            const [x2, y2] = toPixel(atk.x2, atk.y2);
+            const alpha = atk.timer / 0.15;  // 페이드아웃
+            
+            const color = atk.team === 0 ? '52, 152, 219' : '231, 76, 60';
+            
+            // 글로우 효과
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = `rgba(${color}, ${alpha * 0.3})`;
+            ctx.lineWidth = 8;
+            ctx.stroke();
+            
+            // 메인 빔
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = `rgba(${color}, ${alpha})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // 중앙 코어
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // 타격 지점 반짝임
+            ctx.beginPath();
+            ctx.arc(x2, y2, 5 + (1 - alpha) * 10, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+            ctx.fill();
+        }
+        
+        // 대시 이펙트 (잔상)
+        for (const dash of game.dashEffects) {
+            const [x1, y1] = toPixel(dash.x1, dash.y1);
+            const [x2, y2] = toPixel(dash.x2, dash.y2);
+            const alpha = dash.timer / 0.2;  // 페이드아웃
+            
+            const color = dash.team === 0 ? '52, 152, 219' : '231, 76, 60';
+            
+            // 잔상 라인 (점선 느낌)
+            ctx.beginPath();
+            ctx.setLineDash([10, 5]);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = `rgba(${color}, ${alpha * 0.6})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 시작점 잔상 원
+            ctx.beginPath();
+            ctx.arc(x1, y1, 8 * alpha, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${color}, ${alpha * 0.4})`;
+            ctx.fill();
+            
+            // 도착점 번쩍임
+            ctx.beginPath();
+            ctx.arc(x2, y2, 12 * (1 - alpha) + 5, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
+            ctx.fill();
+        }
+        
+        // 궁극기 이펙트
+        for (const ult of game.ultEffects) {
+            const [cx, cy] = toPixel(ult.x, ult.y);
+            const radius = ult.radius * CONFIG.SCALE;
+            const alpha = ult.timer / 0.5;  // 페이드아웃
+            
+            const color = ult.team === 0 ? '52, 152, 219' : '231, 76, 60';
+            
+            // 외곽 링
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${color}, ${alpha})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // 내부 채우기
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${color}, ${alpha * 0.3})`;
+            ctx.fill();
+            
+            // 중앙 별
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.font = `${20 + (1 - alpha) * 20}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText('✦', cx, cy + 8);
+        }
+        
+        // 스킬 조준 미리보기
+        const aimMe = game.players[0];
+        if (aimMe.alive) {
+            const [myCx, myCy] = toPixel(aimMe.x, aimMe.y);
+            const mouseWorldX = camera.x + input.mouseX / CONFIG.SCALE;
+            const mouseWorldY = camera.y + input.mouseY / CONFIG.SCALE;
+            const [mousePixelX, mousePixelY] = toPixel(mouseWorldX, mouseWorldY);
+            
+            // 궁극기 조준 미리보기
+            if (input.aimingUlt) {
+                const spec = WEAPON_SPECS[aimMe.weaponType];
+                const radius = spec.ultRadius * CONFIG.SCALE;
+                let targetX, targetY;
+                
+                if (aimMe.weaponType === 'melee') {
+                    targetX = myCx;
+                    targetY = myCy;
+                } else {
+                    targetX = mousePixelX;
+                    targetY = mousePixelY;
+                }
+                
+                // 범위 원
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(241, 196, 15, 0.8)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([10, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // 내부 채우기
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(241, 196, 15, 0.2)';
+                ctx.fill();
+                
+                // 텍스트
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = 'bold 14px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('Q - 클릭하여 발동', targetX, targetY - radius - 10);
+            }
+            
+            // 대시 조준 미리보기
+            if (input.aimingDash) {
+                const spec = WEAPON_SPECS[aimMe.weaponType];
+                
+                // 방향 계산
+                let dirX = mouseWorldX - aimMe.x;
+                let dirY = mouseWorldY - aimMe.y;
+                const len = Math.sqrt(dirX * dirX + dirY * dirY);
+                
+                if (len > 0) {
+                    const dx = (dirX / len) * spec.dashDist;
+                    const dy = (dirY / len) * spec.dashDist;
+                    
+                    let dashX = aimMe.x + dx;
+                    let dashY = aimMe.y + dy;
+                    
+                    if (!isOnRoad(dashX, dashY)) {
+                        const nearest = getNearestRoadPosition(dashX, dashY);
+                        dashX = nearest.x;
+                        dashY = nearest.y;
+                    }
+                    
+                    const [dashPixelX, dashPixelY] = toPixel(dashX, dashY);
+                    
+                    // 대시 라인
+                    ctx.beginPath();
+                    ctx.moveTo(myCx, myCy);
+                    ctx.lineTo(dashPixelX, dashPixelY);
+                    ctx.strokeStyle = 'rgba(46, 204, 113, 0.8)';
+                    ctx.lineWidth = 4;
+                    ctx.setLineDash([10, 5]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                    // 도착점 원
+                    ctx.beginPath();
+                    ctx.arc(dashPixelX, dashPixelY, 15, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(46, 204, 113, 0.8)';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(46, 204, 113, 0.3)';
+                    ctx.fill();
+                    
+                    // 텍스트
+                    ctx.fillStyle = '#2ecc71';
+                    ctx.font = 'bold 14px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('E - 클릭하여 발동', dashPixelX, dashPixelY - 25);
+                }
+            }
+        }
+        
+        // 플레이어
+        const myTeamId = game.players[0].team;  // 내 팀
+        
+        for (const p of game.players) {
+            if (!p.alive) continue;
+            
+            // 전장의 안개: 적은 시야 내에서만 보임
+            if (p.team !== myTeamId && !isVisibleToTeam(p, myTeamId)) {
+                continue;
+            }
+            
+            const [cx, cy] = toPixel(p.x, p.y);
+            
+            // 화면 밖이면 스킵
+            if (cx < -50 || cx > CANVAS_WIDTH + 50 || cy < -50 || cy > CANVAS_HEIGHT + 50) continue;
+            
+            const radius = CONFIG.PLAYER_RADIUS * CONFIG.SCALE;
+            const color = p.team === 0 ? '#3498db' : '#e74c3c';
+            const isMe = p.id === 0;
+            
+            // 본인 공격 사거리 표시
+            if (isMe) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, getPlayerRange(p) * CONFIG.SCALE, 0, Math.PI * 2);
+                ctx.fillStyle = color + '15';  // 은은하게
+                ctx.fill();
+                ctx.strokeStyle = color + '40';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            
+            // 채널링 보호막 표시
+            if (p.channeling && p.channelShield > 0 && p.maxChannelShield > 0) {
+                const shieldRatio = p.channelShield / p.maxChannelShield;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(155, 89, 182, ${0.3 + shieldRatio * 0.7})`;  // 보라색
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                
+                // 육각형 보호막 느낌
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                    const x = cx + Math.cos(angle) * (radius + 10);
+                    const y = cy + Math.sin(angle) * (radius + 10);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = `rgba(155, 89, 182, ${shieldRatio})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // 스턴 표시 (별 돌아가는 효과)
+            if (p.stunTimer > 0) {
+                const starCount = 3;
+                const orbitRadius = radius + 12;
+                const spinSpeed = game.tick * 0.15;
+                
+                for (let i = 0; i < starCount; i++) {
+                    const angle = spinSpeed + (i / starCount) * Math.PI * 2;
+                    const sx = cx + Math.cos(angle) * orbitRadius;
+                    const sy = cy + Math.sin(angle) * orbitRadius;
+                    
+                    ctx.fillStyle = '#f1c40f';
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('★', sx, sy + 4);
+                }
+                
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('STUNNED', cx, cy - radius - 12);
+            }
+            
+            // 리콜 이펙트 (확장 원형 파동)
+            if (p.recalling) {
+                const progress = p.recallProgress / CONFIG.RECALL_TIME;
+                
+                // 펄스 효과 (시간에 따라 확장)
+                const pulsePhase = (game.tick * 0.1) % 1;
+                const pulseRadius = radius + 5 + pulsePhase * 25;
+                const pulseAlpha = 0.6 * (1 - pulsePhase);
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, pulseRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(52, 152, 219, ${pulseAlpha})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // 내부 원 (진행도 표시)
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius + 6, -Math.PI/2, -Math.PI/2 + progress * Math.PI * 2);
+                ctx.strokeStyle = '#3498db';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+            
+            // 플레이어 원
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = isMe ? '#fff' : '#000';
+            ctx.lineWidth = isMe ? 2 : 1;
+            ctx.stroke();
+            
+            // HP 바
+            const hpRatio = p.hp / p.maxHp;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(cx - 15, cy - radius - 8, 30, 4);
+            ctx.fillStyle = hpRatio > 0.5 ? '#2ecc71' : hpRatio > 0.25 ? '#f1c40f' : '#e74c3c';
+            ctx.fillRect(cx - 15, cy - radius - 8, 30 * hpRatio, 4);
+            
+            // AI 표시
+            if (p.isAI) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '8px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('AI', cx, cy + 3);
+            }
+            
+            // 채널링 게이지
+            if (p.channeling) {
+                const barWidth = 50;
+                const barHeight = 6;
+                // AI는 0~1 기반, 플레이어는 시간 기반
+                const progress = p.isAI ? p.channelProgress : (p.channelTime > 0 ? p.channelProgress / p.channelTime : 0);
+                const shieldRatio = p.maxChannelShield > 0 ? p.channelShield / p.maxChannelShield : 0;
+                
+                // 보호막 바 (위)
+                ctx.fillStyle = '#333';
+                ctx.fillRect(cx - barWidth/2, cy + radius + 8, barWidth, barHeight);
+                ctx.fillStyle = '#9b59b6';  // 보라색
+                ctx.fillRect(cx - barWidth/2, cy + radius + 8, barWidth * shieldRatio, barHeight);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx - barWidth/2, cy + radius + 8, barWidth, barHeight);
+                
+                // 채널링 진행 바 (아래)
+                ctx.fillStyle = '#333';
+                ctx.fillRect(cx - barWidth/2, cy + radius + 16, barWidth, barHeight);
+                ctx.fillStyle = '#2ecc71';  // 초록색
+                ctx.fillRect(cx - barWidth/2, cy + radius + 16, barWidth * progress, barHeight);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx - barWidth/2, cy + radius + 16, barWidth, barHeight);
+                
+                // "HACKING" 텍스트
+                ctx.fillStyle = '#9b59b6';
+                ctx.font = 'bold 10px monospace';
+                ctx.fillText('HACKING', cx, cy + radius + 36);
+            }
+            
+            // 귀환 게이지 표시
+            if (p.recalling) {
+                const progress = p.recallProgress / CONFIG.RECALL_TIME;
+                const barWidth = 40;
+                const barHeight = 6;
+                
+                // 귀환 진행 바
+                ctx.fillStyle = '#333';
+                ctx.fillRect(cx - barWidth/2, cy + radius + 8, barWidth, barHeight);
+                ctx.fillStyle = '#3498db';  // 파란색
+                ctx.fillRect(cx - barWidth/2, cy + radius + 8, barWidth * progress, barHeight);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx - barWidth/2, cy + radius + 8, barWidth, barHeight);
+                
+                // "RECALL" 텍스트
+                ctx.fillStyle = '#3498db';
+                ctx.font = 'bold 10px monospace';
+                ctx.fillText('RECALL', cx, cy + radius + 24);
+            }
+        }
+        
+        // 전장의 안개
+        renderFogOfWar();
+        
+        // 미니맵
+        renderMinimap();
+        
+        // 알림
+        renderNotifications();
+        
+        // UI 업데이트
+        updateUI();
+        
+        // 리스폰 대기 화면
+        const me = game.players[0];
+        if (!me.alive && game.winner === null) {
+            // 반투명 오버레이
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // 리스폰 텍스트
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = 'bold 48px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('YOU DIED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 36px sans-serif';
+            ctx.fillText(`Respawn in ${me.respawnTimer.toFixed(1)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+        }
+        
+        // 승리 화면
+        if (game.winner !== null) {
+            // 반투명 오버레이
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // 승리 텍스트
+            const winnerText = game.winner === 0 ? 'BLUE TEAM WINS!' : 'RED TEAM WINS!';
+            const winnerColor = game.winner === 0 ? '#3498db' : '#e74c3c';
+            
+            ctx.fillStyle = winnerColor;
+            ctx.font = 'bold 64px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(winnerText, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = '24px sans-serif';
+            ctx.fillText(`Time: ${game.time.toFixed(1)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+            
+            ctx.fillStyle = '#888';
+            ctx.font = '18px sans-serif';
+            ctx.fillText('Press R to restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+        }
+    }
+    
+    function renderFogOfWar() {
+        const myTeamId = game.players[0].team;
+        
+        // 오프스크린 캔버스로 마스크 생성
+        const fogCanvas = document.createElement('canvas');
+        fogCanvas.width = CANVAS_WIDTH;
+        fogCanvas.height = CANVAS_HEIGHT;
+        const fogCtx = fogCanvas.getContext('2d');
+        
+        // 전체 어둡게
+        fogCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        fogCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // 아군 시야 영역 지우기
+        fogCtx.globalCompositeOperation = 'destination-out';
+        for (const p of game.players) {
+            if (p.team !== myTeamId || !p.alive) continue;
+            const [cx, cy] = toPixel(p.x, p.y);
+            const visionRadius = CONFIG.VISION_RANGE * CONFIG.SCALE;
+            
+            // 그라데이션으로 부드럽게
+            const gradient = fogCtx.createRadialGradient(cx, cy, visionRadius * 0.7, cx, cy, visionRadius);
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            fogCtx.fillStyle = gradient;
+            fogCtx.beginPath();
+            fogCtx.arc(cx, cy, visionRadius, 0, Math.PI * 2);
+            fogCtx.fill();
+        }
+        
+        // 메인 캔버스에 안개 레이어 합성
+        ctx.drawImage(fogCanvas, 0, 0);
+    }
+    
+    function renderMinimap() {
+        const mx = CANVAS_WIDTH - CONFIG.MINIMAP_SIZE - CONFIG.MINIMAP_MARGIN;
+        const my = CONFIG.MINIMAP_MARGIN;
+        const scale = CONFIG.MINIMAP_SIZE / CONFIG.MAP_WIDTH;
+        
+        // 배경
+        ctx.fillStyle = 'rgba(13, 17, 23, 0.9)';
+        ctx.fillRect(mx, my, CONFIG.MINIMAP_SIZE, CONFIG.MINIMAP_SIZE);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(mx, my, CONFIG.MINIMAP_SIZE, CONFIG.MINIMAP_SIZE);
+        
+        // 연결선
+        ctx.strokeStyle = '#2a2a3a';
+        ctx.lineWidth = 1;
+        for (const [from, to] of NODE_CONNECTIONS) {
+            const n1 = game.nodes[from];
+            const n2 = game.nodes[to];
+            ctx.beginPath();
+            ctx.moveTo(mx + n1.x * scale, my + n1.y * scale);
+            ctx.lineTo(mx + n2.x * scale, my + n2.y * scale);
+            ctx.stroke();
+        }
+        
+        // 부쉬
+        for (const bush of BUSHES) {
+            ctx.beginPath();
+            ctx.arc(mx + bush.x * scale, my + bush.y * scale, bush.radius * scale, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(39, 174, 96, 0.4)';
+            ctx.fill();
+        }
+        
+        // 노드
+        for (const [id, node] of Object.entries(game.nodes)) {
+            let color;
+            if (node.owner === 0) color = '#3498db';
+            else if (node.owner === 1) color = '#e74c3c';
+            else if (node.tier === 'Breaker') color = '#9b59b6';
+            else color = '#555';
+            
+            ctx.beginPath();
+            ctx.arc(mx + node.x * scale, my + node.y * scale, 3, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        
+        // 텔포 패널 (미니맵)
+        for (const [panelId, panel] of Object.entries(TELEPORT_PANELS)) {
+            const status = getTeleportPanelStatus(panelId);
+            let color;
+            if (status === 'ally') color = '#3498db';
+            else if (status === 'enemy') color = '#e74c3c';
+            else color = '#555';
+            
+            ctx.beginPath();
+            ctx.rect(mx + panel.x * scale - 2, my + panel.y * scale - 2, 4, 4);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        
+        // 플레이어
+        const myTeamId = game.players[0].team;
+        for (const p of game.players) {
+            if (!p.alive) continue;
+            
+            // 전장의 안개: 적은 시야 내에서만 보임
+            if (p.team !== myTeamId && !isVisibleToTeam(p, myTeamId)) {
+                continue;
+            }
+            
+            const color = p.team === 0 ? '#3498db' : '#e74c3c';
+            const isMe = p.id === 0;
+            
+            ctx.beginPath();
+            ctx.arc(mx + p.x * scale, my + p.y * scale, isMe ? 4 : 2, 0, Math.PI * 2);
+            ctx.fillStyle = isMe ? '#fff' : color;
+            ctx.fill();
+        }
+        
+        // 카메라 뷰 영역 표시
+        const viewW = (CONFIG.SCREEN_WIDTH / CONFIG.SCALE) * scale;
+        const viewH = (CONFIG.SCREEN_HEIGHT / CONFIG.SCALE) * scale;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(mx + camera.x * scale, my + camera.y * scale, viewW, viewH);
+    }
+    
+    function renderNotifications() {
+        // 화면 상단 중앙에 알림 표시
+        const startY = 60;
+        const lineHeight = 30;
+        
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 16px "Segoe UI", sans-serif';
+        
+        for (let i = 0; i < game.notifications.length; i++) {
+            const notif = game.notifications[i];
+            const y = startY + i * lineHeight;
+            const alpha = Math.min(1, notif.timer);  // 페이드아웃
+            
+            // 배경
+            const textWidth = ctx.measureText(notif.text).width;
+            ctx.fillStyle = `rgba(13, 17, 23, ${alpha * 0.8})`;
+            ctx.fillRect(CANVAS_WIDTH / 2 - textWidth / 2 - 15, y - 18, textWidth + 30, 28);
+            
+            // 테두리
+            ctx.strokeStyle = notif.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+            ctx.lineWidth = 2;
+            ctx.strokeRect(CANVAS_WIDTH / 2 - textWidth / 2 - 15, y - 18, textWidth + 30, 28);
+            
+            // 텍스트
+            ctx.fillStyle = notif.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+            ctx.fillText(notif.text, CANVAS_WIDTH / 2, y);
+        }
+    }
+    
+    function updateUI() {
+        const me = game.players[0];
+        const teamA = game.players.filter(p => p.team === 0 && p.alive).length;
+        const teamB = game.players.filter(p => p.team === 1 && p.alive).length;
+        
+        // 팀 레벨/XP
+        const myTeam = game.teams[me.team];
+        const enemyTeam = game.teams[1 - me.team];
+        
+        // 노드 점령 현황
+        let nodesA = 0, nodesB = 0, nodesN = 0;
+        for (const node of Object.values(game.nodes)) {
+            if (node.owner === 0) nodesA++;
+            else if (node.owner === 1) nodesB++;
+            else nodesN++;
+        }
+        
+        // 무기 정보
+        const weaponName = me.weaponType === 'melee' ? '⚔️ Melee' : '🏹 Ranged';
+        const atBase = isAtBase(me);
+        const weaponLevelInfo = `Lv.${me.weaponLevel}`;
+        const pointsInfo = me.weaponPoints > 0 ? ` <span style="color:#f1c40f">[3: +${me.weaponPoints}pt]</span>` : '';
+        const weaponInfo = atBase ? 
+            `${weaponName} ${weaponLevelInfo}${pointsInfo} <span style="color:#2ecc71">[1/2 교체]</span>` : 
+            `${weaponName} ${weaponLevelInfo}${pointsInfo}`;
+        
+        // 대시 쿨다운
+        const dashReady = me.dashCooldown <= 0;
+        const dashInfo = dashReady ? 
+            '<span style="color:#2ecc71">E: Ready</span>' : 
+            `<span style="color:#888">E: ${me.dashCooldown.toFixed(1)}s</span>`;
+        
+        // 궁극기 상태
+        const teamLevel = getTeamLevel(me.team);
+        let ultInfo;
+        if (teamLevel < ULT_REQUIRED_LEVEL) {
+            ultInfo = `<span style="color:#555">Q: Lv${ULT_REQUIRED_LEVEL}↑</span>`;
+        } else if (me.ultCooldown <= 0) {
+            ultInfo = '<span style="color:#f1c40f">Q: Ready</span>';
+        } else {
+            ultInfo = `<span style="color:#888">Q: ${me.ultCooldown.toFixed(1)}s</span>`;
+        }
+        
+        // HP 바 색상
+        const hpPercent = me.hp / me.maxHp;
+        const hpColor = hpPercent > 0.5 ? '#2ecc71' : hpPercent > 0.25 ? '#f1c40f' : '#e74c3c';
+        
+        // HP 상태
+        let hpInfo = `<span style="color:${hpColor}">${Math.ceil(me.hp)}</span>/${me.maxHp}`;
+        if (atBase && me.hp < me.maxHp) {
+            hpInfo += ' <span style="color:#2ecc71">+healing</span>';
+        }
+        
+        // 상태 표시
+        let statusInfo = '';
+        if (input.aimingUlt) {
+            statusInfo = `<span style="color:#f1c40f">🎯 Q 조준 중 - 클릭하여 발동</span>`;
+        } else if (input.aimingDash) {
+            statusInfo = `<span style="color:#2ecc71">🎯 E 조준 중 - 클릭하여 발동</span>`;
+        } else if (me.recalling) {
+            statusInfo = `<span style="color:#3498db">⏳ 귀환 중... ${(CONFIG.RECALL_TIME - me.recallProgress).toFixed(1)}s</span>`;
+        } else if (me.channeling) {
+            statusInfo = `<span style="color:#9b59b6">🔓 해킹 중...</span>`;
+        } else if (me.stunTimer > 0) {
+            statusInfo = `<span style="color:#f1c40f">⚡ 스턴 ${me.stunTimer.toFixed(1)}s</span>`;
+        } else if (isInBush(me)) {
+            statusInfo = `<span style="color:#27ae60">🌿 은신 중</span>`;
+        }
+        
+        document.getElementById('ui').innerHTML = `
+            <div style="margin-bottom:8px;font-size:16px;color:#fff;">⏱ ${game.time.toFixed(1)}s</div>
+            <div style="margin-bottom:6px;">❤️ HP: ${hpInfo}</div>
+            <div style="margin-bottom:6px;">${weaponInfo}</div>
+            <div style="margin-bottom:6px;">${dashInfo} | ${ultInfo}</div>
+            <div style="margin-bottom:8px;border-top:1px solid #30363d;padding-top:8px;">
+                <span style="color:#3498db">🔵 Lv.${game.teams[0].level}</span> <span style="color:#666">(${game.teams[0].xp}/${CONFIG.XP_PER_LEVEL})</span>
+                vs
+                <span style="color:#e74c3c">🔴 Lv.${game.teams[1].level}</span> <span style="color:#666">(${game.teams[1].xp}/${CONFIG.XP_PER_LEVEL})</span>
+            </div>
+            <div style="margin-bottom:4px;">👥 Alive: <span style="color:#3498db">${teamA}</span> vs <span style="color:#e74c3c">${teamB}</span></div>
+            <div>🏰 Nodes: <span style="color:#3498db">${nodesA}</span> / <span style="color:#666">${nodesN}</span> / <span style="color:#e74c3c">${nodesB}</span></div>
+            ${game.breakerSpawned ? `<div style="margin-top:4px;color:#9b59b6;">⚡ BREAKER ${game.nodes['Breaker'].owner === -1 ? 'ACTIVE' : (game.nodes['Breaker'].owner === 0 ? '🔵' : '🔴')} ${game.breakerClaimCount > 0 ? `(+${Math.round(getBreakerbuff()*100)}%)` : ''}</div>` : ''}
+            ${me.hasBreakerbuff ? `<div style="color:#9b59b6;">🔋 Breaker Buff: +${Math.round(getBreakerbuff()*100)}%</div>` : ''}
+            ${statusInfo ? `<div style="margin-top:8px;border-top:1px solid #30363d;padding-top:8px;">${statusInfo}</div>` : ''}
+        `;
+    }
+    
+    // ==================== 게임 루프 ====================
+    let lastTime = 0;
+    const tickInterval = 1000 / CONFIG.TPS;
+    let accumulator = 0;
+    
+    function gameLoop(currentTime) {
+        if (!lastTime) lastTime = currentTime;
+        const deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+        
+        accumulator += deltaTime;
+        while (accumulator >= tickInterval) {
+            update(tickInterval / 1000);
+            accumulator -= tickInterval;
+        }
+        
+        render();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    // ==================== 시작 ====================
+    initGame();
+    requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
