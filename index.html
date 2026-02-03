@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Portfolio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 1.2rem;
+        }
+        
+        .game-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 217, 255, 0.2);
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .game-title {
+            font-size: 2rem;
+            color: #00d9ff;
+        }
+        
+        .game-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        
+        .badge-playable {
+            background: linear-gradient(90deg, #00ff88, #00d9ff);
+            color: #000;
+        }
+        
+        .badge-docs {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+        
+        .game-description {
+            color: #aaa;
+            line-height: 1.8;
+            margin-bottom: 25px;
+        }
+        
+        .game-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .tag {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+        
+        .buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-play {
+            background: linear-gradient(90deg, #00ff88, #00d9ff);
+            color: #000;
+        }
+        
+        .btn-play:hover {
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+        }
+        
+        .btn-doc {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-doc:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .docs-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .docs-title {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 15px;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            color: #666;
+        }
+        
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+            .game-title {
+                font-size: 1.5rem;
+            }
+            .buttons {
+                flex-direction: column;
+            }
+            .btn {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Game Portfolio</h1>
+            <p class="subtitle">게임 기획 & 개발 포트폴리오</p>
+        </header>
+        
+        <main>
+            <!-- PDA -->
+            <div class="game-card">
+                <div class="game-header">
+                    <h2 class="game-title">🏟️ PDA</h2>
+                    <span class="game-badge badge-playable">✨ 플레이 가능</span>
+                </div>
+                
+                <p class="game-description">
+                    <strong>Plastic Dimension Arena</strong> - 4v4 실시간 멀티플레이어 점령전 게임.<br>
+                    노드를 점령하고 적 가디언을 점령하라! 자유에너지 기반 AI, 멀티 채널링, 텔레포트 시스템 등 다양한 전략 요소.
+                </p>
+                
+                <div class="game-tags">
+                    <span class="tag">Multiplayer</span>
+                    <span class="tag">Socket.io</span>
+                    <span class="tag">HTML5 Canvas</span>
+                    <span class="tag">Real-time</span>
+                    <span class="tag">Free Energy AI</span>
+                </div>
+                
+                <div class="buttons">
+                    <a href="pda/pda_multi.html" class="btn btn-play">🎮 멀티플레이</a>
+                    <a href="pda/pda_single.html" class="btn btn-doc">🤖 싱글플레이</a>
+                </div>
+                
+                <div class="docs-section">
+                    <p class="docs-title">📄 기획 문서</p>
+                    <div class="buttons">
+                        <a href="pda/docs/PDA_Main_Document.html" class="btn btn-doc">메인 기획서</a>
+                        <a href="pda/docs/PDA_Technical_Documentation.html" class="btn btn-doc">기술 문서</a>
+                        <a href="pda/docs/PDA_Character_Hacker_Reference.html" class="btn btn-doc">캐릭터 레퍼런스</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- V&C -->
+            <div class="game-card">
+                <div class="game-header">
+                    <h2 class="game-title">⚔️ V&C</h2>
+                    <span class="game-badge badge-docs">📝 시스템 기획</span>
+                </div>
+                
+                <p class="game-description">
+                    <strong>MMORPG 보스 레이드 시스템</strong> - 자유에너지 원리 기반 보스 AI와 MMR 기반 동적 밸런싱.<br>
+                    고수 파티 8%, 랜덤 매칭 50% 클리어율로 설계. 성장 시스템과 보스 AI 설계 문서.
+                </p>
+                
+                <div class="game-tags">
+                    <span class="tag">Boss AI</span>
+                    <span class="tag">Free Energy Principle</span>
+                    <span class="tag">MMR Balancing</span>
+                    <span class="tag">Growth System</span>
+                    <span class="tag">Python</span>
+                </div>
+                
+                <div class="buttons">
+                    <a href="vc/VC_Growth_System_v2.html" class="btn btn-doc">📊 성장 시스템</a>
+                    <a href="vc/boss_ai_v4_dynamic.py" class="btn btn-doc">🤖 보스 AI (Python)</a>
+                </div>
+            </div>
+            
+            <!-- TTS -->
+            <div class="game-card">
+                <div class="game-header">
+                    <h2 class="game-title">🃏 TTS</h2>
+                    <span class="game-badge badge-docs">📝 컨셉 기획</span>
+                </div>
+                
+                <p class="game-description">
+                    <strong>Tear The Spellbook</strong> - 기존 TCG의 문제점을 해결한 새로운 카드 게임.<br>
+                    마나 스크류, 드로우 운빨, 선후공 불균형을 시스템 설계로 해결. "확률을 누구보다 잘 알기 때문에, 확률을 게임에 넣지 않는다"
+                </p>
+                
+                <div class="game-tags">
+                    <span class="tag">TCG</span>
+                    <span class="tag">Card Game</span>
+                    <span class="tag">System Design</span>
+                    <span class="tag">Balance Math</span>
+                    <span class="tag">BM Design</span>
+                </div>
+                
+                <div class="buttons">
+                    <a href="tts/TTS_Concept_Document.html" class="btn btn-doc">📜 컨셉 기획서</a>
+                </div>
+            </div>
+            
+        </main>
+        
+        <footer>
+            <p>Made with ☕ and 🎮</p>
+        </footer>
+    </div>
+</body>
+</html>
