@@ -100,6 +100,11 @@
         <textarea id="seedInput" placeholder="Enter the seed text to generate RSA key..."></textarea>
         <button id="decryptBtn" onclick="attemptDecrypt()">ATTEMPT DECRYPTION</button>
     </div>
+    
+    <div class="input-section" id="phase2Section">
+        <input type="text" id="redpillInput" placeholder="_" style="width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;font-family:'JetBrains Mono',monospace;font-size:1rem;padding:15px;box-sizing:border-box;">
+        <button onclick="attemptPhase2()">ENTER</button>
+    </div>
 
     <script>
         const terminal = document.getElementById('terminal');
@@ -257,6 +262,22 @@ self.onmessage = async function(e) {
                     log('', 'info');
                     log('[DECRYPTED MESSAGE]', 'success');
                     log(result, 'info');
+                    
+                    // 일기장 저장 (AES 키로 사용)
+                    window.decryptedDiary = result;
+                    
+                    // 2단계 UI 표시
+                    log('', 'info');
+                    log('─'.repeat(50), 'info');
+                    log('', 'info');
+                    log('P.S. 여기까지 온 당신에게.', 'warning');
+                    log('빨간약 먹을 준비 됐는가?', 'warning');
+                    log('', 'info');
+                    log('[?] Type "yes" to see the universe...', 'info');
+                    
+                    // 2단계 입력창 표시
+                    document.getElementById('phase2Section').classList.add('active');
+                    inputSection.classList.remove('active');
                     decryptBtn.disabled = false;
                 }
                 
@@ -301,7 +322,89 @@ self.onmessage = async function(e) {
             });
         }
         
+        // AES 암호문 (Base64) - P≠NP 증명
+        let ENCRYPTED_PROOF = null;
+        const IV = "myheart_ivector!";  // 16바이트 IV
+        
+        // 암호문 파일 미리 로드
+        fetch('encrypted_proof.txt')
+            .then(r => r.text())
+            .then(text => {
+                ENCRYPTED_PROOF = text.trim();
+                console.log('[*] AES ciphertext loaded');
+            });
+        
+        async function attemptPhase2() {
+            const answer = document.getElementById('redpillInput').value.trim().toLowerCase();
+            
+            if (answer !== 'yes') {
+                log('[✗] Wrong answer.', 'error');
+                return;
+            }
+            
+            if (!ENCRYPTED_PROOF) {
+                log('[✗] Ciphertext not loaded yet. Please wait.', 'error');
+                return;
+            }
+            
+            log('', 'info');
+            log('[*] Initiating red pill sequence...', 'warning');
+            
+            // 글리치 효과
+            document.body.style.animation = 'glitch 0.3s ease-in-out 3';
+            await new Promise(r => setTimeout(r, 1000));
+            
+            log('[*] Decrypting the universe...', 'info');
+            
+            try {
+                // 일기장 → SHA-256 → AES 키
+                const diary = window.decryptedDiary;
+                const encoder = new TextEncoder();
+                const data = encoder.encode(diary);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const key = await crypto.subtle.importKey(
+                    'raw', hashBuffer, 'AES-CBC', false, ['decrypt']
+                );
+                
+                // Base64 → ArrayBuffer
+                const ciphertext = Uint8Array.from(atob(ENCRYPTED_PROOF), c => c.charCodeAt(0));
+                const ivBytes = encoder.encode(IV);
+                
+                // AES 복호화
+                const decrypted = await crypto.subtle.decrypt(
+                    { name: 'AES-CBC', iv: ivBytes },
+                    key,
+                    ciphertext
+                );
+                
+                const decoder = new TextDecoder();
+                const html = decoder.decode(decrypted);
+                
+                // 글리치 후 페이지 교체
+                log('[✓] Welcome to the universe.', 'success');
+                await new Promise(r => setTimeout(r, 500));
+                
+                document.open();
+                document.write(html);
+                document.close();
+                
+            } catch (e) {
+                log('[✗] The key is wrong. You are not ready.', 'error');
+            }
+        }
+        
         init();
     </script>
+    
+    <style>
+        @keyframes glitch {
+            0% { transform: translate(0); filter: hue-rotate(0deg); }
+            20% { transform: translate(-5px, 5px); filter: hue-rotate(90deg); }
+            40% { transform: translate(5px, -5px); filter: hue-rotate(180deg); }
+            60% { transform: translate(-5px, -5px); filter: hue-rotate(270deg); }
+            80% { transform: translate(5px, 5px); filter: hue-rotate(360deg); }
+            100% { transform: translate(0); filter: hue-rotate(0deg); }
+        }
+    </style>
 </body>
 </html>
