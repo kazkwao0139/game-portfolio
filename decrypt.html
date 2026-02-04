@@ -144,7 +144,6 @@
             }
         }
         
-        // Web Worker 코드
         const workerCode = `
 importScripts('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
 
@@ -263,10 +262,8 @@ self.onmessage = async function(e) {
                     log('[DECRYPTED MESSAGE]', 'success');
                     log(result, 'info');
                     
-                    // 일기장 저장 (AES 키로 사용)
                     window.decryptedDiary = result;
                     
-                    // 2단계 UI 표시
                     log('', 'info');
                     log('─'.repeat(50), 'info');
                     log('', 'info');
@@ -275,7 +272,6 @@ self.onmessage = async function(e) {
                     log('', 'info');
                     log('[?] Type "yes" to see the universe...', 'info');
                     
-                    // 2단계 입력창 표시
                     document.getElementById('phase2Section').classList.add('active');
                     inputSection.classList.remove('active');
                     decryptBtn.disabled = false;
@@ -322,16 +318,13 @@ self.onmessage = async function(e) {
             });
         }
         
-        // AES 암호문 (Base64) - P≠NP 증명
         let ENCRYPTED_PROOF = null;
-        const IV = "myheart_ivector!";  // 16바이트 IV
+        const IV = "myheart_ivector!";
         
-        // 암호문 파일 미리 로드
         fetch('encrypted_proof.txt')
             .then(r => r.text())
             .then(text => {
                 ENCRYPTED_PROOF = text.trim();
-                console.log('[*] AES ciphertext loaded');
             });
         
         async function attemptPhase2() {
@@ -350,14 +343,12 @@ self.onmessage = async function(e) {
             log('', 'info');
             log('[*] Initiating red pill sequence...', 'warning');
             
-            // 글리치 효과
             document.body.style.animation = 'glitch 0.3s ease-in-out 3';
             await new Promise(r => setTimeout(r, 1000));
             
             log('[*] Decrypting the universe...', 'info');
             
             try {
-                // 일기장 → SHA-256 → AES 키
                 const diary = window.decryptedDiary;
                 const encoder = new TextEncoder();
                 const data = encoder.encode(diary);
@@ -366,11 +357,9 @@ self.onmessage = async function(e) {
                     'raw', hashBuffer, 'AES-CBC', false, ['decrypt']
                 );
                 
-                // Base64 → ArrayBuffer
                 const ciphertext = Uint8Array.from(atob(ENCRYPTED_PROOF), c => c.charCodeAt(0));
                 const ivBytes = encoder.encode(IV);
                 
-                // AES 복호화
                 const decrypted = await crypto.subtle.decrypt(
                     { name: 'AES-CBC', iv: ivBytes },
                     key,
@@ -380,7 +369,6 @@ self.onmessage = async function(e) {
                 const decoder = new TextDecoder();
                 const html = decoder.decode(decrypted);
                 
-                // 글리치 후 페이지 교체
                 log('[✓] Welcome to the universe.', 'success');
                 await new Promise(r => setTimeout(r, 500));
                 
