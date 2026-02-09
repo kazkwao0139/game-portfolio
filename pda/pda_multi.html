@@ -2809,8 +2809,7 @@
             if (p.channeling) {
                 const barWidth = 50;
                 const barHeight = 6;
-                // AI는 0~1 기반, 플레이어는 시간 기반
-                const progress = p.isAI ? p.channelProgress : (p.channelTime > 0 ? p.channelProgress / p.channelTime : 0);
+                const progress = p.channelTime > 0 ? p.channelProgress / p.channelTime : 0;
                 const shieldRatio = p.maxChannelShield > 0 ? p.channelShield / p.maxChannelShield : 0;
                 
                 // 보호막 바 (위)
@@ -2913,15 +2912,19 @@
         }
     }
     
+    // 안개 캔버스 캐시
+    const fogCanvas = document.createElement('canvas');
+    fogCanvas.width = CANVAS_WIDTH;
+    fogCanvas.height = CANVAS_HEIGHT;
+    const fogCtx = fogCanvas.getContext('2d');
+
     function renderFogOfWar() {
         const myTeamId = getMyPlayer().team;
-        
-        // 오프스크린 캔버스로 마스크 생성
-        const fogCanvas = document.createElement('canvas');
-        fogCanvas.width = CANVAS_WIDTH;
-        fogCanvas.height = CANVAS_HEIGHT;
-        const fogCtx = fogCanvas.getContext('2d');
-        
+
+        // 이전 프레임 초기화
+        fogCtx.globalCompositeOperation = 'source-over';
+        fogCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
         // 전체 어둡게
         fogCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         fogCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
