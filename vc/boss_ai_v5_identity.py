@@ -160,9 +160,14 @@ class BossPersonality:
     fixated_target: Optional[str] = None   # 얀데레: 고정 타겟
     damage_dealt_total: float = 0.0        # 사도데레: 누적 가해량
 
+    _cached_params: Optional[dict] = None
+    _cached_sigma: float = -1.0
+    _cached_phi: float = -1.0
+
     def __post_init__(self):
         self.sigma = self.sigma_base
         self.phi = self.phi_base
+        self._invalidate_cache()
 
     def update(self, turn: int, **ctx):
         """
@@ -200,6 +205,25 @@ class BossPersonality:
 
         # kuudere, megadere, himedere: 고정값 (시간 변화 없음)
 
+        self._invalidate_cache()
+
+    def _invalidate_cache(self):
+        """σ/φ 변경 시 캐시 무효화"""
+        if self.sigma != self._cached_sigma or self.phi != self._cached_phi:
+            self._cached_sigma = self.sigma
+            self._cached_phi = self.phi
+            s = max(0.0, min(1.0, self.sigma))
+            p = max(0.0, min(1.0, self.phi))
+            self._cached_params = {
+                "beta":   0.05 + 1.95 * (1 - s) ** 2,
+                "gamma":  0.5 + 1.5 * p,
+                "k_heal": 55 * (1 - s) ** 0.7,
+                "fake_rate": 0.5 * s * p,
+                "focus":  p ** 1.5,
+                "phase_thresholds": (0.5 + 0.3 * s, 0.2 + 0.3 * s),
+                "dmg_scale": 0.7 + 0.6 * s,
+            }
+
     def get_params(self) -> dict:
         """
         ★ 핵심 수식: σ, φ → 전투 파라미터 일괄 파생
@@ -215,19 +239,7 @@ class BossPersonality:
         - phase: 선형 오프셋 → 광폭화 시점만 σ에 비례해 앞당김, 구조 변경 없음
         - dmg:   선형 → 데미지는 공격성에 정비례, 복잡할 이유 없음
         """
-        s = np.clip(self.sigma, 0.0, 1.0)  # σ
-        p = np.clip(self.phi, 0.0, 1.0)    # φ
-
-        return {
-            "beta":   0.05 + 1.95 * (1 - s) ** 2,     # [0.05, 2.0] 돌진 의지
-            "gamma":  0.5 + 1.5 * p,                   # [0.5, 2.0]  추적 정밀도
-            "k_heal": 55 * (1 - s) ** 0.7,              # [0, 55]     회복 의지
-            "fake_rate": 0.5 * s * p,                   # [0, 0.5]    교활함
-            "focus":  p ** 1.5,                          # [0, 1]      타겟 고정력
-            "phase_thresholds": (0.5 + 0.3 * s,         # 광폭화 임계점
-                                 0.2 + 0.3 * s),
-            "dmg_scale": 0.7 + 0.6 * s,                 # [0.7, 1.3]  데미지 배율
-        }
+        return self._cached_params
 
     def reset(self):
         """전투 시작 시 초기화"""
@@ -236,6 +248,7 @@ class BossPersonality:
         self.turn = 0
         self.fixated_target = None
         self.damage_dealt_total = 0.0
+        self._invalidate_cache()
 
 
 def create_personality(dere_type: DereType) -> BossPersonality:
@@ -919,14 +932,14 @@ class BattleSimulator:
             mmr_list = [1200] * 8
             
         roles = [
-            (Role.TANK, "탱커"),
-            (Role.OFFTANK, "서브탱"),
-            (Role.MELEE_DPS, "암살자1"),
-            (Role.MELEE_DPS, "암살자2"),
-            (Role.RANGED_DPS, "궁수"),
-            (Role.RANGED_DPS, "마법사"),
-            (Role.HEALER, "힐러1"),
-            (Role.HEALER, "힐러2"),
+            (Role.TANK, "Tank"),
+            (Role.OFFTANK, "Offtank"),
+            (Role.MELEE_DPS, "Assassin1"),
+            (Role.MELEE_DPS, "Assassin2"),
+            (Role.RANGED_DPS, "Archer"),
+            (Role.RANGED_DPS, "Mage"),
+            (Role.HEALER, "Healer1"),
+            (Role.HEALER, "Healer2"),
         ]
         
         party = []
@@ -973,21 +986,21 @@ class BattleSimulator:
             "turns": [],
             "result": None,
             "avg_c0": avg_c0,
-            "boss_hp": BOSS_HP,
+            "boss_hp": self.boss.max_hp,
         }
         
         if verbose:
             dere_str = f" [{self.personality.dere_type.value}]" if self.personality else ""
             print(f"\n{'='*60}")
-            print(f"전투 시작!{dere_str} 보스 HP: {self.boss.max_hp}, c0: {avg_c0:.2f}")
+            print(f"Battle Start!{dere_str} Boss HP: {self.boss.max_hp}, c0: {avg_c0:.2f}")
             print(f"{'='*60}")
         
         for turn in range(25):
             alive = [m for m in party if m.alive]
             if not alive:
-                log["result"] = "전멸"
+                log["result"] = "wipe"
                 if verbose:
-                    print(f"\nWIPE 전멸 (턴 {turn})")
+                    print(f"\nWIPE (turn {turn})")
                 return False, log
             
             turn_log = {"turn": turn + 1, "events": []}
@@ -999,7 +1012,7 @@ class BattleSimulator:
             # ---- σ-φ 시간 진화 ----
             if self.personality:
                 ctx = {}
-                # 얀데레: 고정 타겟 도주 체크
+                # 얀데레: 고정 타겟 도주 체크 / 사망 시 재지정
                 if (self.personality.dere_type == DereType.YANDERE
                         and self.personality.fixated_target):
                     ft = [m for m in alive
@@ -1008,6 +1021,11 @@ class BattleSimulator:
                         dist = (abs(ft[0].pos[0] - self.boss.pos[0])
                                 + abs(ft[0].pos[1] - self.boss.pos[1]))
                         ctx["target_fled"] = dist > 5
+                    else:
+                        # 고정 타겟 사망 → 폭주 + 새 타겟 대기
+                        self.personality.fixated_target = None
+                        self.personality.sigma = min(1.0, self.personality.sigma + 0.3)
+                        ctx["target_fled"] = True
                 self.personality.update(turn, **ctx)
                 params = self.personality.get_params()
                 self.boss.predictor.beta = params["beta"]
@@ -1036,30 +1054,30 @@ class BattleSimulator:
                 self.boss.predictor.update_beta(
                     self.boss.hp, self.boss.max_hp, self.boss.recent_damage)
             
-            turn_log["events"].append(f"DPS {dps} → 보스 {self.boss.hp}")
+            turn_log["events"].append(f"DPS {dps} -> Boss {self.boss.hp}")
             
             if verbose:
                 if self.personality:
                     p = self.personality
                     mode = ""
                     if p.dere_type == DereType.TSUNDERE:
-                        mode = " [츤]" if p.sigma > p.sigma_base else " [데레]"
+                        mode = " [tsun]" if p.sigma > p.sigma_base else " [dere]"
                     elif p.dere_type == DereType.YANDERE and p.fixated_target:
-                        mode = f" [집착: {p.fixated_target}]"
+                        mode = f" [fixated: {p.fixated_target}]"
                     elif p.dere_type == DereType.DANDERE:
-                        mode = f" [각성 {min(100, int(turn/20*100))}%]"
+                        mode = f" [awaken {min(100, int(turn/20*100))}%]"
                     elif p.dere_type == DereType.SADODERE:
-                        mode = f" [흥분 {p.sigma:.2f}]"
-                    print(f"\n[턴 {turn+1}] s={p.sigma:.2f} p={p.phi:.2f}{mode} | 파티HP {party_hp_ratio*100:.0f}%")
+                        mode = f" [excite {p.sigma:.2f}]"
+                    print(f"\n[Turn {turn+1}] s={p.sigma:.2f} p={p.phi:.2f}{mode} | PartyHP {party_hp_ratio*100:.0f}%")
                 else:
-                    print(f"\n[턴 {turn+1}] 파티HP: {party_hp_ratio*100:.0f}%")
-                print(f"  DPS: {dps} -> 보스: {self.boss.hp}/{self.boss.max_hp}")
+                    print(f"\n[Turn {turn+1}] PartyHP: {party_hp_ratio*100:.0f}%")
+                print(f"  DPS: {dps} -> Boss: {self.boss.hp}/{self.boss.max_hp}")
             
             if self.boss.hp <= 0:
-                log["result"] = "클리어"
+                log["result"] = "clear"
                 log["turns"].append(turn_log)
                 if verbose:
-                    print(f"\nCLEAR 클리어! (턴 {turn+1})")
+                    print(f"\nCLEAR! (turn {turn+1})")
                 return True, log
             
             # ---- 힐링 (휴먼 에러 적용) ----
@@ -1067,7 +1085,7 @@ class BattleSimulator:
                 # 힐 타이밍 체크
                 if not check_heal_timing(healer.mmr):
                     if verbose:
-                        print(f"  MISS {healer.name} 힐 타이밍 놓침!")
+                        print(f"  MISS {healer.name} heal timing failed!")
                     continue
                     
                 injured = [m for m in alive if m.hp < m.max_hp]
@@ -1077,16 +1095,16 @@ class BattleSimulator:
                     target.hp = min(target.max_hp, target.hp + HEAL_PER_TURN)
                     
                     if verbose and target.hp > old_hp:
-                        print(f"  HEAL {healer.name} → {target.name}: +{target.hp - old_hp}")
+                        print(f"  HEAL {healer.name} -> {target.name}: +{target.hp - old_hp}")
             
             # ---- 보스 회복 ----
             heal = self.boss.get_heal_amount(avg_c0, party_hp_ratio)
             self.boss.hp = min(self.boss.max_hp, self.boss.hp + heal)
             
-            turn_log["events"].append(f"보스 회복 +{heal}")
+            turn_log["events"].append(f"Boss regen +{heal}")
             
             if verbose and heal > 0:
-                print(f"  REGEN 보스 회복: +{heal}")
+                print(f"  REGEN Boss: +{heal}")
             
             # ---- 보스 이동 (타겟 향해) ----
             target_candidates = self.boss.select_targets(party, 1)
@@ -1096,16 +1114,16 @@ class BattleSimulator:
             # ---- 보스 공격 ----
             alive = [m for m in party if m.alive]
             if not alive:
-                log["result"] = "전멸"
+                log["result"] = "wipe"
                 return False, log
-            
+
             n_targets, base_dmg, phase = self.boss.get_phase()
             targets = self.boss.select_targets(party, n_targets)
             
             # 페이크 공격 체크
             if self.boss.is_fake_attack():
                 if verbose:
-                    print(f"  FAKE Phase {phase}: 페이크! (공격 취소)")
+                    print(f"  FAKE Phase {phase}: feint! (attack cancelled)")
                 log["turns"].append(turn_log)
                 continue
             
@@ -1114,54 +1132,54 @@ class BattleSimulator:
                 if not self.personality.fixated_target and targets:
                     self.personality.fixated_target = targets[0].name
                     if verbose:
-                        print(f"  !! {targets[0].name}에게 집착 시작 !!")
+                        print(f"  !! Fixated on {targets[0].name} !!")
 
             if verbose:
                 print(f"  Phase {phase}: -> {[t.name for t in targets]}")
             
+            turn_damage = 0
             for target in targets:
                 base_dmg_val = self.boss.get_damage(avg_c0, base_dmg)
-                
+
                 # 직업별 방어 체크
                 defense_result, dmg_mult = check_defense(target.role, target.mmr)
                 dmg = int(base_dmg_val * dmg_mult)
-                
+
                 # 결과 문자열
                 if defense_result == "parry":
-                    defense_str = " (패링!)"
+                    defense_str = " (parry!)"
                 elif defense_result == "dodge":
-                    defense_str = " (회피!)"
+                    defense_str = " (dodge!)"
                 elif defense_result == "crit":
-                    defense_str = " (피격!)"
+                    defense_str = " (crit!)"
                 else:
                     defense_str = ""
-                
+
                 old_hp = target.hp
                 target.hp -= dmg
-                
+                turn_damage += dmg
+
                 # 동적 γ: σ-φ 없을 때만 v4 레거시
                 if not self.personality:
                     was_hit = (dmg > 0 and defense_result != "dodge")
                     self.boss.predictor.update_gamma(was_hit)
-                
+
                 status = " DEAD" if target.hp <= 0 else ""
-                turn_log["events"].append(f"{target.name}: {old_hp} → {max(0, target.hp)}{status}")
-                
+                turn_log["events"].append(f"{target.name}: {old_hp} -> {max(0, target.hp)}{status}")
+
                 if verbose:
-                    print(f"    {target.name}: -{dmg}{defense_str} → {max(0, target.hp)}{status}")
-            
-            # 사도데레: 데미지 줄수록 흥분
+                    print(f"    {target.name}: -{dmg}{defense_str} -> {max(0, target.hp)}{status}")
+
+            # 사도데레: 이번 턴 실제 데미지 비례 흥분
             if self.personality and self.personality.dere_type == DereType.SADODERE:
-                dealt = sum(max(0, t.max_hp - t.hp) for t in targets
-                            if not t.alive)
-                if dealt > 0:
-                    self.personality.update(turn, damage_dealt=dealt)
+                if turn_damage > 0:
+                    self.personality.update(turn, damage_dealt=turn_damage)
 
             log["turns"].append(turn_log)
 
-        log["result"] = "시간초과"
+        log["result"] = "timeout"
         if verbose:
-            print(f"\nTIMEOUT 시간 초과")
+            print(f"\nTIMEOUT")
         return False, log
     
     def run_test(self, mmr_list: List[int], n_iterations: int = 1000) -> float:
@@ -1210,7 +1228,7 @@ def visualize_positioning(boss_pos: Tuple[int, int],
         if 0 <= rx < grid_size and 0 <= ry < grid_size:
             grid[ry][rx] = symbols.get(m.role, '?')
     
-    print("\n포지셔닝:")
+    print("\nPositioning:")
     for row in grid:
         print(' '.join(row))
 
@@ -1221,29 +1239,29 @@ def visualize_positioning(boss_pos: Tuple[int, int],
 
 if __name__ == "__main__":
     print("=" * 65)
-    print("V&C 보스 AI v5 -- s-p 데레 아이덴티티")
+    print("V&C Boss AI v5 -- s-p Dere Identity")
     print("=" * 65)
 
     print("""
-[s-p 시스템]
-s (sigma) = 표면 공격성  (0=순함, 1=흉폭)
-p (phi)   = 내면 집착도  (0=무관심, 1=스토커)
+[s-p System]
+s (sigma) = surface aggression  (0=gentle, 1=fierce)
+p (phi)   = inner obsession     (0=indifferent, 1=stalker)
 
-수식 하나로 보스 전체 행동 결정:
-  beta  = 0.05 + 1.95*(1-s)^2   돌진 의지
-  gamma = 0.5 + 1.5*p           추적 정밀도
-  k     = 55*(1-s)^0.7          회복 의지
-  fake  = 0.5*s*p               교활함
-  focus = p^1.5                  타겟 고정력
-  phase = [0.5+0.3s, 0.2+0.3s]  광폭화 임계점
-  dmg   = 0.7+0.6s              데미지 배율
+All combat params derived from two scalars:
+  beta  = 0.05 + 1.95*(1-s)^2   rush willingness
+  gamma = 0.5 + 1.5*p           tracking precision
+  k     = 55*(1-s)^0.7          regen willingness
+  fake  = 0.5*s*p               cunning
+  focus = p^1.5                  target fixation
+  phase = [0.5+0.3s, 0.2+0.3s]  enrage threshold
+  dmg   = 0.7+0.6s              damage scale
 """)
 
     # ---- 데레별 파라미터 테이블 ----
-    print("[데레별 파라미터]")
-    print(f"  {'타입':<10} {'s':>5} {'p':>5} {'beta':>6} {'gamma':>5}"
+    print("[Dere Parameters]")
+    print(f"  {'type':<10} {'s':>5} {'p':>5} {'beta':>6} {'gamma':>5}"
           f" {'k':>6} {'fake':>6} {'focus':>6} {'dmg':>5}")
-    print(f"  {'─'*58}")
+    print(f"  {'-'*58}")
 
     for dere in DereType:
         pers = create_personality(dere)
@@ -1257,8 +1275,8 @@ p (phi)   = 내면 집착도  (0=무관심, 1=스토커)
     mix_mmr = [1900, 1900, 1900, 1900, 800, 800, 800, 800]
     N_SIM = 500
 
-    print(f"\n[클리어율 -- 랜덤매칭 혼합파티 {N_SIM}회]")
-    print(f"  {'─'*52}")
+    print(f"\n[Clear Rate -- Mixed Party x{N_SIM}]")
+    print(f"  {'-'*52}")
 
     for dere in DereType:
         personality = create_personality(dere)
@@ -1271,11 +1289,11 @@ p (phi)   = 내면 집착도  (0=무관심, 1=스토커)
     sim_legacy = BattleSimulator(tier=5)
     rate_legacy = sim_legacy.run_test(mix_mmr, N_SIM)
     bar_legacy = "=" * int(rate_legacy * 20)
-    print(f"  {'(v4기본)':<10}: {rate_legacy*100:>5.1f}% {bar_legacy}")
+    print(f"  {'(v4 base)':<10}: {rate_legacy*100:>5.1f}% {bar_legacy}")
 
     # ---- 상세 전투: 츤데레 ----
     print("\n" + "=" * 65)
-    print("상세 전투: 츤데레 보스 (s 진동 = 리듬 보스)")
+    print("Battle Detail: Tsundere Boss (s oscillation = rhythm boss)")
     print("=" * 65)
 
     np.random.seed(42)
@@ -1285,7 +1303,7 @@ p (phi)   = 내면 집착도  (0=무관심, 1=스토커)
 
     # ---- 상세 전투: 얀데레 ----
     print("\n" + "=" * 65)
-    print("상세 전투: 얀데레 보스 (타겟 고정 + 도주 시 폭주)")
+    print("Battle Detail: Yandere Boss (target fixation + flee = rage)")
     print("=" * 65)
 
     np.random.seed(42)
