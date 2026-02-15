@@ -417,9 +417,12 @@
                 hasBreakerbuff: false, // 브레이커 버프
                 targetNode: null, // AI 목표 노드
                 currentNode: 'A_Guardian', // AI 현재 노드
+                aiAction: null,       // 현재 AI 행동
+                aiActionTimer: 0,     // 행동 유지 시간
+                noRecallTimer: 0,     // 리콜 금지 시간
             });
         }
-        
+
         // 팀 B (4-7) - B_Base(105, 10) 근처 도로 위
         for (let i = 0; i < 4; i++) {
             game.players.push({
@@ -453,6 +456,9 @@
                 hasBreakerbuff: false, // 브레이커 버프
                 targetNode: null, // AI 목표 노드
                 currentNode: 'B_Guardian', // AI 현재 노드
+                aiAction: null,
+                aiActionTimer: 0,
+                noRecallTimer: 0,
             });
         }
     }
@@ -531,13 +537,19 @@
                 }
                 continue;
             }
-            
+
+            // 스턴 중이면 스킵
+            if (p.stunTimer > 0) {
+                p.stunTimer -= dt;
+                continue;
+            }
+
             if (p.isAI) {
                 updateAI(p, dt);
             } else {
                 updatePlayer(p, dt);
             }
-            
+
             // 쿨다운 감소 (AI/플레이어 공통)
             if (p.attackCooldown > 0) {
                 p.attackCooldown -= dt;
@@ -558,7 +570,10 @@
         
         // 다중 채널링 처리
         updateMultiChanneling(dt);
-        
+
+        // 승리 조건
+        checkWinCondition();
+
         // 카메라가 플레이어 따라감
         const me = game.players[0];
         camera.x = me.x - (CONFIG.SCREEN_WIDTH / CONFIG.SCALE) / 2;
@@ -694,12 +709,6 @@
     }
     
     function updatePlayer(p, dt) {
-        // 스턴 중이면 아무것도 못함
-        if (p.stunTimer > 0) {
-            p.stunTimer -= dt;
-            return;
-        }
-        
         // 무기 교체 (베이스에서만)
         if (isAtBase(p)) {
             if (input['1']) p.weaponType = 'melee';
@@ -760,9 +769,9 @@
         
         // 채널링 중이면
         if (p.channeling) {
-            // F키 떼면 취소 + 후딜레이 (다른 입력은 무시)
+            // F키 떼면 자발적 취소 - 나만 취소 (스턴 없음)
             if (!input.f) {
-                failChanneling(p);
+                cancelChanneling(p);
             } else {
                 // 채널링 진행
                 p.channelProgress += dt;
@@ -814,16 +823,24 @@
                     if (distance({x: ultX, y: ultY}, enemy) < spec.ultRadius) {
                         const armor = WEAPON_SPECS[enemy.weaponType].armor;
                         const finalDamage = spec.ultDamage * (1 - armor);
-                        enemy.hp -= finalDamage;
-                        
+
                         if (enemy.recalling) {
                             enemy.recalling = false;
                             enemy.recallProgress = 0;
                         }
-                        if (enemy.channeling) {
-                            failChanneling(enemy);
+
+                        // 채널링 중이면 보호막 먼저, 초과분 HP로
+                        if (enemy.channeling && enemy.channelShield > 0) {
+                            enemy.channelShield -= finalDamage;
+                            if (enemy.channelShield <= 0) {
+                                const overflow = -enemy.channelShield;
+                                failChanneling(enemy);
+                                enemy.hp -= overflow;
+                            }
+                        } else {
+                            enemy.hp -= finalDamage;
                         }
-                        
+
                         if (enemy.hp <= 0) {
                             enemy.alive = false;
                             enemy.hp = 0;
@@ -967,9 +984,9 @@
         }
     }
     
-    // 무기 레벨 배율 (레벨당 +20%)
+    // 무기 레벨 배율 (레벨당 +15%)
     function getWeaponLevelMult(weaponLevel) {
-        return 1.0 + (weaponLevel - 1) * 0.2;
+        return 1 + (weaponLevel - 1) * 0.15;
     }
     
     function getTeamLevel(teamId) {
@@ -1153,8 +1170,11 @@
                     // AI 상태 갱신
                     if (p.isAI) {
                         p.currentNode = panel.targetNode;
+                        p.noRecallTimer = 5; // 텔포 후 5초간 리콜 금지
+                        p.aiAction = null;   // 행동 리셋
+                        p.aiActionTimer = 0;
                     }
-                    
+
                     return true;  // 텔포됨
                 }
             }
@@ -1260,49 +1280,43 @@
         // 각 노드별로 채널링 중인 플레이어 처리
         for (const [nodeId, node] of Object.entries(game.nodes)) {
             // 이 노드를 채널링 중인 팀별 플레이어 목록
-            const team0Channelers = game.players.filter(p => 
+            const team0Channelers = game.players.filter(p =>
                 p.team === 0 && p.alive && p.channeling && p.channelTarget === nodeId && p.isAI
             );
-            const team1Channelers = game.players.filter(p => 
+            const team1Channelers = game.players.filter(p =>
                 p.team === 1 && p.alive && p.channeling && p.channelTarget === nodeId && p.isAI
             );
-            
+
             // 팀 0 AI 채널링 진행
             if (team0Channelers.length > 0) {
                 const factor = multiChannelFactor(team0Channelers.length);
-                const baseTime = NODE_SPECS[node.tier].channelTime;
-                const effectiveTime = baseTime * factor;
-                const progressRate = dt / effectiveTime;
-                
+
                 for (const p of team0Channelers) {
+                    let increment = dt / factor;
                     if (p.hasBreakerbuff) {
-                        p.channelProgress += progressRate / (1 - getBreakerbuff());
-                    } else {
-                        p.channelProgress += progressRate;
+                        increment /= (1 - getBreakerbuff());
                     }
-                    
-                    if (p.channelProgress >= 1) {
+                    p.channelProgress += increment;
+
+                    if (p.channelProgress >= p.channelTime) {
                         completeChanneling(p);
-                        break;  // 한 명이 완료하면 됨
+                        break;
                     }
                 }
             }
-            
+
             // 팀 1 AI 채널링 진행
             if (team1Channelers.length > 0) {
                 const factor = multiChannelFactor(team1Channelers.length);
-                const baseTime = NODE_SPECS[node.tier].channelTime;
-                const effectiveTime = baseTime * factor;
-                const progressRate = dt / effectiveTime;
-                
+
                 for (const p of team1Channelers) {
+                    let increment = dt / factor;
                     if (p.hasBreakerbuff) {
-                        p.channelProgress += progressRate / (1 - getBreakerbuff());
-                    } else {
-                        p.channelProgress += progressRate;
+                        increment /= (1 - getBreakerbuff());
                     }
-                    
-                    if (p.channelProgress >= 1) {
+                    p.channelProgress += increment;
+
+                    if (p.channelProgress >= p.channelTime) {
                         completeChanneling(p);
                         break;
                     }
@@ -1443,6 +1457,15 @@
         }
     }
     
+    function checkWinCondition() {
+        if (game.winner !== null) return;
+        if (game.nodes['A_Guardian'].owner === 1) {
+            game.winner = 1;
+        } else if (game.nodes['B_Guardian'].owner === 0) {
+            game.winner = 0;
+        }
+    }
+
     // ==================== 경로 탐색 ====================
     function findNearestNode(x, y) {
         // 현재 위치에서 가장 가까운 노드 찾기 (Base 제외 - 경로탐색용)
@@ -1684,8 +1707,9 @@
             });
         }
         
-        // 2. 귀환 (HP 낮고 안전)
-        if (sit.hpRatio < 0.4 && sit.enemyDist > 30) {
+        // 2. 귀환 (HP 낮고 안전, 베이스 아닐 때, 리콜 금지 아닐 때)
+        const nearBase = isAtBase(p);
+        if (sit.hpRatio < 0.4 && sit.enemyDist > 30 && !nearBase && p.noRecallTimer <= 0) {
             options.push({
                 action: 'recall',
                 score: feScore(
@@ -1851,21 +1875,25 @@
         for (const enemy of game.players) {
             if (enemy.team === p.team || !enemy.alive) continue;
             if (distance({ x: ultX, y: ultY }, enemy) < spec.ultRadius) {
-                enemy.hp -= spec.ultDamage;
-                
-                // 피격 시 귀환/채널링 취소
+                const armor = WEAPON_SPECS[enemy.weaponType].armor;
+                const finalDamage = spec.ultDamage * (1 - armor);
+
                 if (enemy.recalling) {
                     enemy.recalling = false;
                     enemy.recallProgress = 0;
                 }
-                if (enemy.channeling) {
-                    enemy.channelShield -= spec.ultDamage;
+
+                if (enemy.channeling && enemy.channelShield > 0) {
+                    enemy.channelShield -= finalDamage;
                     if (enemy.channelShield <= 0) {
+                        const overflow = -enemy.channelShield;
                         failChanneling(enemy);
+                        enemy.hp -= overflow;
                     }
+                } else {
+                    enemy.hp -= finalDamage;
                 }
-                
-                // 킬 체크
+
                 if (enemy.hp <= 0) {
                     enemy.hp = 0;
                     enemy.alive = false;
@@ -1894,16 +1922,25 @@
         if (!target || !target.alive) return;
         const range = getPlayerRange(p);
         const d = distance(p, target);
-        
+
         // 범위 밖이면 접근
         if (d > range * 0.9) {
             const dx = target.x - p.x;
             const dy = target.y - p.y;
             const speed = getPlayerSpeed(p);
-            p.x += (dx / d) * speed * dt;
-            p.y += (dy / d) * speed * dt;
+            const newX = p.x + (dx / d) * speed * dt;
+            const newY = p.y + (dy / d) * speed * dt;
+
+            if (isOnRoad(newX, newY)) {
+                p.x = newX;
+                p.y = newY;
+            } else {
+                const nearest = getNearestRoadPosition(newX, newY);
+                p.x = nearest.x;
+                p.y = nearest.y;
+            }
         }
-        
+
         // 공격
         if (d <= range && p.attackCooldown <= 0) {
             attack(p, target);
@@ -1935,9 +1972,9 @@
             p.weaponPoints--;
         }
         
-        // 상태 처리
-        if (p.stunTimer > 0) { p.stunTimer -= dt; return; }
-        
+        // 리콜 금지 타이머 감소
+        if (p.noRecallTimer > 0) p.noRecallTimer -= dt;
+
         if (p.recalling) {
             p.recallProgress += dt;
             if (p.recallProgress >= CONFIG.RECALL_TIME) {
@@ -1956,6 +1993,14 @@
             return;
         }
         
+        // 베이스 힐
+        if (isAtBase(p) && p.hp < p.maxHp) {
+            p.hp = Math.min(p.maxHp, p.hp + CONFIG.BASE_HEAL_RATE * dt);
+            if (p.hp < p.maxHp * 0.8) return; // 80% 될 때까지 대기
+            // 힐 완료되면 리콜 금지 (바로 다시 돌아오는 거 방지)
+            p.noRecallTimer = Math.max(p.noRecallTimer, 3);
+        }
+
         // 베이스에 있을 때 텔포 패널 사용
         if (isAtBase(p)) {
             const tpPanel = getAITeleportTarget(p);
@@ -2014,8 +2059,15 @@
         }
         
         if (lowHP || inCombat) {
-            const action = feDecideAction(p, sit);
-            
+            // 행동 결정은 0.3초마다 (버벅임 방지)
+            p.aiActionTimer -= dt;
+            if (p.aiActionTimer <= 0) {
+                p.aiAction = feDecideAction(p, sit);
+                p.aiActionTimer = 0.3 + Math.random() * 0.2; // 0.3~0.5초
+            }
+
+            const action = p.aiAction || 'attack';
+
             if (action === 'retreat') {
                 // 후퇴 시 목표 초기화
                 p.targetNode = null;
@@ -2035,7 +2087,7 @@
                 return;
             }
             
-            if (action === 'recall') {
+            if (action === 'recall' && p.noRecallTimer <= 0) {
                 p.recalling = true;
                 p.recallProgress = 0;
                 return;
@@ -2128,9 +2180,10 @@
     }
     
     function attack(attacker, target) {
-        attacker.attackCooldown = CONFIG.ATTACK_COOLDOWN;
         const damage = getPlayerDamage(attacker);
-        
+        const armor = WEAPON_SPECS[target.weaponType].armor;
+        const finalDamage = damage * (1 - armor);
+
         // 공격 이펙트 추가
         game.attackEffects.push({
             x1: attacker.x,
@@ -2138,61 +2191,54 @@
             x2: target.x,
             y2: target.y,
             team: attacker.team,
-            timer: 0.15,  // 0.15초 지속
+            timer: 0.1,
         });
-        
-        // 채널링 중이면 보호막 먼저 공격 (방어력 적용 X)
+
+        // 채널링 중이면 보호막 먼저, 초과분 HP로
         if (target.channeling && target.channelShield > 0) {
-            target.channelShield -= damage;
-            
-            // 보호막 깨짐 → 채널링 실패 + 후딜레이
+            target.channelShield -= finalDamage;
             if (target.channelShield <= 0) {
+                const overflow = -target.channelShield;
                 failChanneling(target);
+                target.hp -= overflow;
             }
-            return;  // 보호막 공격은 HP 안 깎음
+        } else {
+            target.hp -= finalDamage;
         }
-        
+
         // 피격 시 귀환 취소
         if (target.recalling) {
             target.recalling = false;
             target.recallProgress = 0;
         }
-        
-        // 방어력 적용된 데미지
-        const armor = WEAPON_SPECS[target.weaponType].armor;
-        const finalDamage = damage * (1 - armor);
-        
-        target.hp -= finalDamage;
-        
+
+        attacker.attackCooldown = CONFIG.ATTACK_COOLDOWN;
+
         if (target.hp <= 0) {
-            target.alive = false;
             target.hp = 0;
-            
-            // 리스폰 타임: 6 + 2 × 팀레벨
+            target.alive = false;
             const targetTeamLevel = getTeamLevel(target.team);
             target.respawnTimer = 6 + 2 * targetTeamLevel;
-            
-            cancelChanneling(target);
-            
-            // 킬 XP 획득
             addTeamXP(attacker.team, CONFIG.KILL_XP);
         }
     }
     
     function respawn(p) {
-        p.alive = true;
+        const baseId = p.team === 0 ? 'A_Base' : 'B_Base';
+        const base = game.nodes[baseId];
+        p.x = base.x + (Math.random() - 0.5) * 10;
+        p.y = base.y + (p.team === 0 ? -10 : 10);
         p.hp = p.maxHp;
+        p.alive = true;
+        p.stunTimer = 0;
+        p.channeling = false;
         p.recalling = false;
-        p.recallProgress = 0;
-        
         // AI 상태 리셋
         p.currentNode = p.team === 0 ? 'A_Guardian' : 'B_Guardian';
         p.targetNode = null;
-        
-        // 스폰 위치 - 베이스 정중앙
-        const base = game.nodes[p.team === 0 ? 'A_Base' : 'B_Base'];
-        p.x = base.x;
-        p.y = base.y;
+        p.aiAction = null;
+        p.aiActionTimer = 0;
+        p.noRecallTimer = 0;
     }
     
     function distance(a, b) {
@@ -2758,8 +2804,7 @@
             if (p.channeling) {
                 const barWidth = 50;
                 const barHeight = 6;
-                // AI는 0~1 기반, 플레이어는 시간 기반
-                const progress = p.isAI ? p.channelProgress : (p.channelTime > 0 ? p.channelProgress / p.channelTime : 0);
+                const progress = p.channelTime > 0 ? p.channelProgress / p.channelTime : 0;
                 const shieldRatio = p.maxChannelShield > 0 ? p.channelShield / p.maxChannelShield : 0;
                 
                 // 보호막 바 (위)
