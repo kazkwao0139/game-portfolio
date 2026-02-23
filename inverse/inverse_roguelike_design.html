@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inverse Roguelike Design Document</title>
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global',
+                scale: 1.05
+            },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    MathJax.startup.promise.then(() => {
+                        document.querySelectorAll('mjx-container svg').forEach(svg => {
+                            svg.style.fill = '#e8e8e8';
+                        });
+                    });
+                }
+            }
+        };
+    </script>
+    <style>
+        mjx-container svg { fill: #e8e8e8 !important; }
+    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" type="text/javascript"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            color: #e8e8e8;
+            line-height: 1.8;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 60px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 50px;
+        }
+
+        header h1 {
+            font-size: 2.8em;
+            background: linear-gradient(135deg, #ff4757, #ffa502);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+
+        header .subtitle {
+            font-size: 1.2em;
+            color: #888;
+            font-weight: 300;
+        }
+
+        header .confidential {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 20px;
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid #e94560;
+            border-radius: 4px;
+            color: #e94560;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        /* TOC */
+        #TOC {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 30px 40px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        #TOC::before {
+            content: "목차 (Table of Contents)";
+            display: block;
+            font-size: 1.3em;
+            color: #ff4757;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 71, 87, 0.3);
+        }
+
+        #TOC ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        #TOC > ul > li {
+            margin-bottom: 15px;
+        }
+
+        #TOC ul ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+
+        #TOC a {
+            color: #aaa;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        #TOC a:hover {
+            color: #ff4757;
+        }
+
+        #TOC > ul > li > a {
+            color: #ddd;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+
+        /* Content sections */
+        .content {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        h1 {
+            font-size: 2em;
+            background: linear-gradient(135deg, #ff4757, #ffa502);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 60px 0 30px 0;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 71, 87, 0.3);
+        }
+
+        h2 {
+            font-size: 1.5em;
+            color: #ff4757;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 71, 87, 0.2);
+        }
+
+        h3 {
+            font-size: 1.2em;
+            color: #ffa502;
+            margin: 30px 0 15px 0;
+        }
+
+        h4, h5, h6 {
+            color: #ffbe76;
+            margin: 20px 0 10px 0;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: #ccc;
+        }
+
+        strong {
+            color: #fff;
+        }
+
+        em {
+            color: #ddd;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 15px 0 15px 25px;
+            color: #bbb;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            display: table;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        th {
+            background: rgba(255, 71, 87, 0.15);
+            color: #ff4757;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        td {
+            color: #bbb;
+        }
+
+        tbody {
+            border: none;
+        }
+
+        tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Blockquotes */
+        blockquote {
+            background: rgba(255, 165, 2, 0.08);
+            border-left: 4px solid #ffa502;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+            color: #ccc;
+        }
+
+        /* Code */
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #ff4757;
+        }
+
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        /* Math (MathJax SVG) */
+        mjx-container {
+            color: #e8e8e8 !important;
+        }
+
+        mjx-container svg {
+            fill: #e8e8e8 !important;
+        }
+
+        mjx-container[jax="SVG"][display="true"] {
+            display: block !important;
+            text-align: center !important;
+            margin: 1.2em 0 !important;
+        }
+
+        .math.display {
+            display: block;
+            text-align: center;
+            margin: 1em 0;
+        }
+
+        /* Links */
+        a {
+            color: #ff4757;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* HR */
+        hr {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin: 40px 0;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 0.9em;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: 50px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            .content, #TOC {
+                padding: 20px;
+            }
+
+            h1 { font-size: 1.6em; }
+            h2 { font-size: 1.3em; }
+
+            table {
+                font-size: 0.85em;
+            }
+        }
+
+        /* Print */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+
+            h1, h2, h3 {
+                -webkit-text-fill-color: #1a1a2e;
+                color: #1a1a2e;
+                background: none;
+            }
+
+            .content, #TOC {
+                background: white;
+                border: 1px solid #ddd;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Inverse Roguelike</h1>
+            <p class="subtitle">게임 설계 문서 &mdash; 역진행 로그라이크의 구조적 설계</p>
+        </header>
+
+        <nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#inverse-concept">1. Inverse 컨셉 정의</a>
+<ul>
+<li><a href="#structural-limit">1.1 기존 로그라이크의 구조적 한계</a></li>
+<li><a href="#inverted-curve">1.2 Inverse: 역전된 진행 곡선</a></li>
+<li><a href="#core-difference">1.3 핵심 차이: 획득 vs 선택적 희생</a></li>
+</ul></li>
+<li><a href="#core-mechanics">2. 핵심 메커니즘: 희생 시스템</a>
+<ul>
+<li><a href="#sacrifice-rules">2.1 희생(Sacrifice) 규칙</a></li>
+<li><a href="#suspense-theory">2.2 서스펜스 이론 적용</a></li>
+<li><a href="#suspense-entropy">2.3 서스펜스의 정량화: Shannon Entropy</a></li>
+<li><a href="#emotional-density">2.4 감정 밀도 비교</a></li>
+</ul></li>
+<li><a href="#potential-system">3. 포텐셜 기반 동적 맵 시스템</a>
+<ul>
+<li><a href="#macro-potential">3.1 슈뢰딩거 포텐셜의 거시적 적용</a></li>
+<li><a href="#density-difficulty">3.2 유저 밀도 함수와 난이도 조정</a></li>
+<li><a href="#walkthrough-destruction">3.3 공략의 자기파괴성</a></li>
+<li><a href="#update-cycle">3.4 업데이트 주기와 서버 아키텍처</a></li>
+</ul></li>
+<li><a href="#meta-economy">4. 다회차 경제 시스템</a>
+<ul>
+<li><a href="#dependency-currency">4.1 의존도 기반 메타 재화</a></li>
+<li><a href="#comfort-zone">4.2 컴포트존 포기의 보상 구조</a></li>
+<li><a href="#survival-vs-growth">4.3 런 내 생존 vs 장기 성장 딜레마</a></li>
+</ul></li>
+<li><a href="#world-narrative">5. 세계관 &amp; 서사 구조</a>
+<ul>
+<li><a href="#legacy">5.1 선대 용사의 유산</a></li>
+<li><a href="#return">5.2 반납의 서사적 정당성: 귀환</a></li>
+<li><a href="#failure-meaning">5.3 실패의 의미: 다음 용사를 위한 유산</a></li>
+<li><a href="#climax">5.4 클라이맥스: 맨몸의 최종전</a></li>
+</ul></li>
+<li><a href="#comparison">6. 기존 로그라이크 비교분석</a>
+<ul>
+<li><a href="#emotion-loop-compare">6.1 감정 루프 비교</a></li>
+<li><a href="#strategy-compare">6.2 전략 깊이 비교</a></li>
+<li><a href="#replayability-compare">6.3 리플레이어빌리티 비교</a></li>
+</ul></li>
+<li><a href="#prototype">7. 프로토타이핑 검증 목표</a>
+<ul>
+<li><a href="#proto-params">7.1 프로토타입 파라미터</a></li>
+<li><a href="#proto-hypothesis">7.2 검증 가설</a></li>
+<li><a href="#proto-metrics">7.3 측정 지표</a></li>
+<li><a href="#proto-simulation">7.4 사전 검증: AI 시뮬레이션</a></li>
+</ul></li>
+</ul>
+</nav>
+
+        <div class="content">
+
+<!-- ============================================================ -->
+<!-- SECTION 1: INVERSE CONCEPT -->
+<!-- ============================================================ -->
+
+<h1 id="inverse-concept">1. Inverse 컨셉 정의</h1>
+
+<h2 id="structural-limit">1.1 기존 로그라이크의 구조적 한계</h2>
+
+<p>기존 로그라이크의 진행 곡선은 <strong>누적 획득(Accumulative Acquisition)</strong> 모델을 따른다.</p>
+
+<p><span class="math display">\[ P(s) = P_0 + \sum_{i=1}^{s} A_i \]</span></p>
+
+<table>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(P(s)\)</td>
+<td>스테이지 \(s\)에서의 플레이어 전투력</td>
+<td>\(\mathbb{R}^+\)</td>
+</tr>
+<tr>
+<td>\(P_0\)</td>
+<td>초기 전투력 (약한 상태)</td>
+<td>고정, 낮음</td>
+</tr>
+<tr>
+<td>\(A_i\)</td>
+<td>스테이지 \(i\)에서 획득한 아이템의 전투력 기여</td>
+<td><strong>확률 변수 (Random)</strong></td>
+</tr>
+</tbody>
+</table>
+
+<p>이 구조의 근본적 문제는 \(A_i\)가 <strong>확률 변수</strong>라는 것이다. 1스테이지에서 전설 무기를 얻느냐, 일반 무기를 얻느냐가 런 전체의 성패를 결정한다. 전략적 선택이 아니라 난수 생성기(RNG)가 게임을 지배한다.</p>
+
+<p><span class="math display">\[ \text{Var}(P_{\text{traditional}}) = \sum_{i=1}^{s} \text{Var}(A_i) \]</span></p>
+
+<p>스테이지가 진행될수록 분산이 누적된다. <strong>운이 좋은 런과 나쁜 런의 체감 격차가 기하급수적으로 벌어진다.</strong></p>
+
+<hr />
+
+<h2 id="inverted-curve">1.2 Inverse: 역전된 진행 곡선</h2>
+
+<p>Inverse는 진행 방향 자체를 뒤집는다. <strong>선택적 희생(Selective Sacrifice)</strong> 모델.</p>
+
+<p><span class="math display">\[ P(s) = P_{\max} - \sum_{i=1}^{s} S_i \]</span></p>
+
+<table>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+<th>특성</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(P(s)\)</td>
+<td>스테이지 \(s\)에서의 플레이어 전투력</td>
+<td>\(\mathbb{R}^+\), 단조감소</td>
+</tr>
+<tr>
+<td>\(P_{\max}\)</td>
+<td>초기 전투력 (최강 상태)</td>
+<td><strong>고정, 확정</strong></td>
+</tr>
+<tr>
+<td>\(S_i\)</td>
+<td>스테이지 \(i\)에서 희생한 장비의 전투력 기여</td>
+<td><strong>플레이어 선택 (Deterministic)</strong></td>
+</tr>
+</tbody>
+</table>
+
+<p>핵심적 차이: \(S_i\)는 확률 변수가 아니다. <strong>플레이어가 선택한다.</strong> 어떤 장비를 버릴지는 전략적 판단이다.</p>
+
+<p>기존 로그라이크에서 분산의 원천은 RNG였다:</p>
+
+<p><span class="math display">\[ \text{Var}(P_{\text{traditional}}) = f(\text{RNG}) \quad \text{— 플레이어 통제 불가} \]</span></p>
+
+<p>Inverse에서 분산의 원천은 플레이어의 선택이다:</p>
+
+<p><span class="math display">\[ \text{Var}(P_{\text{inverse}}) = f(S_1, S_2, \ldots, S_s) \quad \text{— 플레이어 통제 가능} \]</span></p>
+
+<p>분산이 사라진 것이 아니다. 다른 플레이어는 다른 선택을 하고, 다른 결과에 도달한다. 핵심은 그 <strong>분산의 원천이 RNG에서 플레이어 에이전시로 이동</strong>했다는 것이다.</p>
+
+<blockquote>
+<p><strong>설계 의도:</strong> 기존 로그라이크의 "운빨"을 구조적으로 삭제한다. 모든 런의 출발점이 동일하고, 모든 분기가 플레이어의 선택에 의해 결정된다. 런 간 차이는 존재하지만, 그 차이의 원인이 난수 생성기가 아니라 전략적 판단이다.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="core-difference">1.3 핵심 차이: 획득 vs 선택적 희생</h2>
+
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>기존 로그라이크</th>
+<th>Inverse</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>시작 상태</strong></td>
+<td>약함 (P<sub>0</sub> ≈ 최소)</td>
+<td>최강 (P<sub>max</sub>)</td>
+</tr>
+<tr>
+<td><strong>진행 방향</strong></td>
+<td>강해짐 (단조증가)</td>
+<td>약해짐 (단조감소)</td>
+</tr>
+<tr>
+<td><strong>핵심 행위</strong></td>
+<td>아이템 획득</td>
+<td>장비 반납 (희생)</td>
+</tr>
+<tr>
+<td><strong>의사결정 주체</strong></td>
+<td>RNG (시스템)</td>
+<td>플레이어 (선택)</td>
+</tr>
+<tr>
+<td><strong>핵심 감정</strong></td>
+<td>획득의 도파민</td>
+<td>희생의 서스펜스</td>
+</tr>
+<tr>
+<td><strong>최종 보스전</strong></td>
+<td>최강 상태로 대결</td>
+<td>최약 상태로 대결</td>
+</tr>
+<tr>
+<td><strong>런 간 분산</strong></td>
+<td>RNG 의존 (통제 불가)</td>
+<td>선택 의존 (통제 가능)</td>
+</tr>
+</tbody>
+</table>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 2: CORE MECHANICS -->
+<!-- ============================================================ -->
+
+<h1 id="core-mechanics">2. 핵심 메커니즘: 희생 시스템</h1>
+
+<h2 id="sacrifice-rules">2.1 희생(Sacrifice) 규칙</h2>
+
+<p>매 스테이지 진입 전, 플레이어는 <strong>반드시 보유 장비 중 하나를 반납</strong>해야 다음 문이 열린다.</p>
+
+<ol>
+<li>장비는 교체가 아니라 <strong>소멸</strong>한다. 해당 장비의 능력치와 특수능력이 즉시 제거된다.</li>
+<li>어떤 장비를 반납할지는 <strong>전적으로 플레이어의 선택</strong>이다.</li>
+<li>반납은 <strong>되돌릴 수 없다</strong>.</li>
+</ol>
+
+<p>스테이지 \(s\)에서 플레이어의 선택 가능 공간:</p>
+
+<p><span class="math display">\[ \mathcal{C}(s) = \{ e_j \mid e_j \in \text{Equipment}(s) \} \]</span></p>
+
+<p>초기 장비가 \(n\)개일 때, 총 선택 경로의 수:</p>
+
+<p><span class="math display">\[ |\text{Paths}| = n! \]</span></p>
+
+<p>장비 5개 기준, \(5! = 120\)가지 고유한 경로가 존재한다. 모든 경로가 동일한 출발점에서 시작하지만, <strong>각각 다른 최종 상태</strong>에 도달한다.</p>
+
+<hr />
+
+<h2 id="suspense-theory">2.2 서스펜스 이론 적용</h2>
+
+<p>알프레드 히치콕의 서스펜스 이론:</p>
+
+<blockquote>
+<p>"테이블 아래 폭탄이 터지면 <strong>놀라움(Surprise)</strong>. 관객이 폭탄이 있다는 걸 알고 있으면 <strong>서스펜스(Suspense)</strong>."</p>
+</blockquote>
+
+<p>Inverse의 희생 시스템은 히치콕의 서스펜스 구조를 게임 메커니즘에 직접 이식한다.</p>
+
+<table>
+<thead>
+<tr>
+<th>정보 유형</th>
+<th>상태</th>
+<th>비유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>내 장비의 능력치</td>
+<td><strong>확실 (Known)</strong></td>
+<td>폭탄의 존재를 아는 관객</td>
+</tr>
+<tr>
+<td>다음 보스의 속성</td>
+<td><strong>불확실 (Unknown)</strong></td>
+<td>폭탄이 언제 터질지 모르는 관객</td>
+</tr>
+<tr>
+<td>버린 후 내 생존 가능성</td>
+<td><strong>추정 (Estimated)</strong></td>
+<td>시한장치의 시간이 흐려서 보이는 관객</td>
+</tr>
+</tbody>
+</table>
+
+<p>스테이지 \(s\)에서 희생 결정 시점의 긴장도(Tension):</p>
+
+<p><span class="math display">\[ T(s) = K(s) \times U(s+1) \]</span></p>
+
+<table>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(K(s)\)</td>
+<td>희생 선택의 한계 가치 (marginal stakes)</td>
+<td>남은 장비가 적을수록 하나를 버리는 무게가 크다</td>
+</tr>
+<tr>
+<td>\(U(s+1)\)</td>
+<td>다음 스테이지에 대한 불확실성</td>
+<td>다음 보스가 뭔지 모르니 "불안하다"</td>
+</tr>
+</tbody>
+</table>
+
+<p>초기 장비가 \(n\)개이고 스테이지 \(s\)까지 \(s\)개를 희생했을 때, 남은 장비는 \(n - s\)개이다. 하나를 추가로 희생하면 남은 전력의 \(\frac{1}{n-s}\)를 잃는다:</p>
+
+<p><span class="math display">\[ K(s) = \frac{1}{n - s} \]</span></p>
+
+<p>\(n = 5\) 기준, \(K\)는 0.2 &rarr; 0.25 &rarr; 0.33 &rarr; 0.5 &rarr; 1.0으로 <strong>단조증가</strong>한다. 마지막 장비를 버리는 선택은 첫 번째의 5배 무겁다.</p>
+
+<p>\(K\)와 \(U\)가 동시에 높을 때 서스펜스가 최대화된다. Inverse에서 \(K(s)\)는 구조적으로 단조증가하고, \(U(s+1)\)은 힌트 시스템에 의해 유지된다. 후반으로 갈수록 긴장감이 높아지는 곡선이 보장된다.</p>
+
+<hr />
+
+<h2 id="suspense-entropy">2.3 서스펜스의 정량화: Shannon Entropy</h2>
+
+<p>2.2절의 긴장도 공식 \(T(s) = K(s) \times U(s+1)\)에서 \(U(s+1)\)은 직관적 서술이었다. 이를 Shannon Entropy로 정량화한다.</p>
+
+<h3>조건부 엔트로피로서의 서스펜스</h3>
+
+<p>보스 타입이 \(m\)가지일 때, 힌트가 없는 상태의 최대 불확실성:</p>
+
+<p><span class="math display">\[ H_{\max} = \log_2 m \]</span></p>
+
+<p>힌트 \(h\)가 주어졌을 때, 플레이어가 추정하는 보스 분포의 조건부 엔트로피:</p>
+
+<p><span class="math display">\[ H(\text{Boss} \mid \text{Hint}) = -\sum_{j=1}^{m} P(b_j \mid h) \log_2 P(b_j \mid h) \]</span></p>
+
+<p>예시: 보스 타입이 5가지(화염, 빙결, 독, 물리, 신성)이고, 힌트가 "불타는 기운이 느껴집니다"인 경우:</p>
+
+<table>
+<thead>
+<tr>
+<th>보스 타입</th>
+<th>플레이어 추정 확률</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>화염</td>
+<td>0.5</td>
+</tr>
+<tr>
+<td>물리 (화염 외형 변종)</td>
+<td>0.2</td>
+</tr>
+<tr>
+<td>독</td>
+<td>0.1</td>
+</tr>
+<tr>
+<td>빙결</td>
+<td>0.1</td>
+</tr>
+<tr>
+<td>신성</td>
+<td>0.1</td>
+</tr>
+</tbody>
+</table>
+
+<p><span class="math display">\[ H = -(0.5 \log_2 0.5 + 0.2 \log_2 0.2 + 3 \times 0.1 \log_2 0.1) \approx 1.96 \text{ bits} \]</span></p>
+
+<p>힌트 없는 균등 분포의 \(H_{\max} = \log_2 5 \approx 2.32\) bits에 비해 약 <strong>15% 감소</strong>. 불확실성이 줄었지만 확신은 없는 상태. 이것이 서스펜스이다.</p>
+
+<h3>긴장도 공식의 재정의</h3>
+
+<p><span class="math display">\[ \boxed{T(s) = K(s) \times H\big(\text{Boss}_{s+1} \mid \text{Hint}_{s+1}\big)} \]</span></p>
+
+<table>
+<thead>
+<tr>
+<th>힌트 품질</th>
+<th>엔트로피 \(H\)</th>
+<th>긴장도 \(T\)</th>
+<th>플레이어 체감</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>힌트 없음</td>
+<td>\(H_{\max}\) (최대)</td>
+<td>높지만 <strong>도박</strong></td>
+<td>전략 불가, 운에 맡김</td>
+</tr>
+<tr>
+<td>힌트 애매함</td>
+<td>중간</td>
+<td><strong>서스펜스 최대</strong></td>
+<td>추론 가능, 확신 없음</td>
+</tr>
+<tr>
+<td>보스 완전 공개</td>
+<td>\(0\)</td>
+<td>\(0\)</td>
+<td>서스펜스 없음, 최적화 문제</td>
+</tr>
+</tbody>
+</table>
+
+<p><strong>서스펜스의 정체는 조건부 엔트로피 자체이다.</strong> 너무 높으면 랜덤 도박이고, 0이면 스프레드시트 계산이다. 중간값일 때 "읽었는데 맞을까?"가 된다.</p>
+
+<h3>정보 이득과 힌트 설계</h3>
+
+<p>힌트가 제공하는 정보 이득(Information Gain):</p>
+
+<p><span class="math display">\[ IG = H(\text{Boss}) - H(\text{Boss} \mid \text{Hint}) \]</span></p>
+
+<p>\(IG\)는 힌트 설계의 핵심 튜닝 변수이다. \(IG\)가 크면 힌트가 친절하고, 작으면 모호하다.</p>
+
+<h3>스테이지 진행에 따른 긴장 곡선</h3>
+
+<p>스테이지가 진행될수록 두 변수가 동시에 변화한다:</p>
+
+<ul>
+<li>남은 장비 감소 &rarr; \(K(s) = \frac{1}{n-s}\) <strong>단조증가</strong></li>
+<li>힌트 품질을 유지하거나 낮춤 &rarr; \(H(\text{Boss} \mid \text{Hint})\) <strong>유지 또는 증가</strong></li>
+</ul>
+
+<p><span class="math display">\[ K(s) = \frac{1}{n-s} \uparrow \text{ and } H(s) \geq \text{const} \implies T(s) \uparrow \]</span></p>
+
+<p>후반으로 갈수록 긴장감이 <strong>단조증가</strong>하는 곡선이 수학적으로 보장된다. \(K(s)\)의 증가가 구조적(장비 수 감소에 의한 필연)이므로, 클라이맥스에서 긴장이 최고조에 달하는 서사 구조가 시스템 레벨에서 성립한다.</p>
+
+<h3>선행 연구와의 관계</h3>
+
+<p>서스펜스를 수학적으로 정의한 최초의 연구는 Ely, Frankel, Kamenica (2015)의 "Suspense and Surprise"이다<sup>[1]</sup>. 이들은 서스펜스를 <strong>다음 시점 신념 변화의 기대 분산</strong>으로 정의했다:</p>
+
+<p><span class="math display">\[ \text{Suspense}_t = \Big(\mathbb{E}_t\big[(\mu_{t+1} - \mu_t)^2\big]\Big)^{1/2} \]</span></p>
+
+<p>여기서 \(\mu_t\)는 시점 \(t\)에서의 신념(belief)이다. 이 모델은 관객이 결과를 수동적으로 관찰하는 상황 &mdash; 스포츠 중계, 미스터리 소설, 경매 &mdash; 에서 서스펜스를 분석하기 위해 설계되었으며, 결과 공간이 이항(binary)인 경우에 특히 효과적이다.</p>
+
+<p>Wilmot &amp; Keller (2020)는 이 이론을 NLP에 적용하여, 뉴럴 표현 위의 uncertainty reduction으로 단편소설의 서스펜스를 예측했다<sup>[2]</sup>.</p>
+
+<p>그러나 이들 모델은 공통적으로 <strong>관찰자(observer)의 서스펜스</strong>를 다룬다. 소설의 독자, 스포츠 중계의 시청자, 경매의 방청객 &mdash; 이들은 신념이 바뀔 뿐 <strong>행동하지 않는다</strong>. 결과에 영향을 미칠 수 없는 주체의 불확실성을 측정하는 도구이다.</p>
+
+<p>Inverse의 분석 대상은 다르다. 우리에게 필요한 것은 <strong>플레이어(player)가 느끼는 서스펜스</strong>를 정량화하는 도구이다. 플레이어는 불확실성 아래에서 <strong>능동적으로 의사결정</strong>을 내려야 하며, 그 결정이 결과를 직접 바꾼다. 관찰자는 "다음에 무슨 일이 일어날까?"를 궁금해하지만, 플레이어는 "내가 이걸 버리면 다음에 살아남을 수 있을까?"를 판단해야 한다. 분석 대상 자체가 다르므로, 관찰자의 서스펜스를 위해 설계된 위 모델을 플레이어의 서스펜스에 직접 차용하기엔 부적합하다.</p>
+
+<p>Hirsh, Mar &amp; Peterson (2012)의 심리적 엔트로피(Psychological Entropy) 프레임워크가 이 간극을 메운다<sup>[3]</sup>. 이들은 Shannon 엔트로피를 능동적 행위자의 <strong>행동 선택지(behavioral affordances)</strong> 분포에 적용하여, 경쟁하는 행동 옵션들의 엔트로피가 곧 주관적 불확실성이며 이것이 불안(anxiety)으로 경험된다는 것을 보였다. 핵심 논증은 네 가지이다:</p>
+
+<ol>
+<li>유기체는 불확실성을 적응적 위협으로 인식하며, 이를 감소시키려 동기화된다</li>
+<li>불확실성은 경쟁하는 지각적·행동적 선택지 간의 충돌에서 발생한다</li>
+<li>목표와 신념이 엔트로피를 제약하여 분포를 좁힌다</li>
+<li>잔여 엔트로피는 불안/긴장으로 주관적으로 경험된다</li>
+</ol>
+
+<p>이 모델에서 분석 대상은 관찰자가 아니라 <strong>능동적 의사결정자</strong>이다. Ely et al.이 "다음에 무슨 일이 일어날까?"를 지켜보는 주체의 신념 변화를 다뤘다면, Hirsh et al.은 "내가 무엇을 해야 하는가?"를 결정해야 하는 주체의 행동 선택지 엔트로피를 다룬다. Inverse의 희생 결정 &mdash; "이 검을 버릴까, 방패를 버릴까" &mdash; 이 정확히 후자이다.</p>
+
+<p>Abuhamdeh, Csikszentmihalyi &amp; Jalal (2015)는 이 관계를 게임 맥락에서 실험적으로 검증했다<sup>[4]</sup>. 비디오 게임에서 능동적 플레이어의 결과 불확실성이 서스펜스를 유발하고, 이 서스펜스가 즐거움을 매개한다는 것을 보였다. 주목할 점은, 플레이어가 확실한 승리보다 <strong>불확실한 대결을 선호</strong>했다는 것이다. 관찰자가 아닌 능동적 플레이어에게서 불확실성 &rarr; 서스펜스 &rarr; 몰입 경로가 작동한다는 직접적 증거이다.</p>
+
+<p>따라서 Shannon의 조건부 엔트로피 \(H(\text{Boss} \mid \text{Hint})\)는 Hirsh et al.의 프레임워크 위에서 정당화된다. 이것은 보스 분포의 정보이론적 불확실성인 동시에, 플레이어의 희생 전략 선택지에 대한 <strong>심리적 엔트로피</strong>이다. 결과 공간의 크기(\(m\)가지 보스 타입)에 관계없이 불확실성을 자연스럽게 정량화하며, 힌트 시스템의 Information Gain을 <strong>설계 변수</strong>로 직접 사용할 수 있다.</p>
+
+<p style="color: #888; font-size: 0.85em; margin-top: 30px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
+[1] Ely, J., Frankel, A., &amp; Kamenica, E. (2015). "Suspense and Surprise." <em>Journal of Political Economy</em>, 123(1), 215&ndash;260.<br/>
+[2] Wilmot, D. &amp; Keller, F. (2020). "Modelling Suspense in Short Stories as Uncertainty Reduction over Neural Representation." <em>Proceedings of ACL 2020</em>, 1763&ndash;1788.<br/>
+[3] Hirsh, J. B., Mar, R. A., &amp; Peterson, J. B. (2012). "Psychological Entropy: A Framework for Understanding Uncertainty-Related Anxiety." <em>Psychological Review</em>, 119(2), 304&ndash;320.<br/>
+[4] Abuhamdeh, S., Csikszentmihalyi, M., &amp; Jalal, B. (2015). "Enjoying the Possibility of Defeat: Outcome Uncertainty, Suspense, and Intrinsic Motivation." <em>Motivation and Emotion</em>, 39(1), 1&ndash;10.
+</p>
+
+<hr />
+
+<h2 id="emotional-density">2.4 감정 밀도 비교</h2>
+
+<p>스테이지당 감정 이벤트(Emotional Event) 수를 비교한다.</p>
+
+<h3>기존 로그라이크</h3>
+
+<p><span class="math display">\[ E_{\text{traditional}} = 1 \quad \text{(아이템 획득 시점)} \]</span></p>
+
+<p>감정 루프: 스테이지 클리어 &rarr; 보상 획득 &rarr; 도파민. 단일 이벤트.</p>
+
+<h3>Inverse</h3>
+
+<p><span class="math display">\[ E_{\text{inverse}} = 2 \quad \text{(희생 결정 + 결과 확인)} \]</span></p>
+
+<p>감정 루프:</p>
+<ol>
+<li><strong>희생 결정</strong>: "이걸 버려도 되나?" &rarr; 서스펜스</li>
+<li><strong>다음 문 개방</strong>: 보스 확인 &rarr; 안도 또는 절망</li>
+</ol>
+
+<p><span class="math display">\[ \frac{E_{\text{inverse}}}{E_{\text{traditional}}} = 2 \]</span></p>
+
+<p><strong>스테이지당 감정 밀도가 2배.</strong> 같은 길이의 런에서 플레이어가 경험하는 감정 이벤트의 총량이 두 배로 늘어난다.</p>
+
+<p>더 중요한 차이는 이벤트 수가 아니라 <strong>이벤트당 감정 강도</strong>이다. 기존 로그라이크의 핵심 선택은 "새로운 옵션 중 무엇을 가져갈까"(gain frame)이고, Inverse의 핵심 선택은 "소유한 장비 중 무엇을 포기할까"(loss frame)이다. 이 두 프레임의 감정 비대칭은 행동경제학에서 반복 검증된 현상이다:</p>
+
+<ul>
+<li><strong>엔다우먼트 효과</strong>: 소유한 물건은 미소유 상태 대비 약 2배 높게 평가된다<sup>[5]</sup>. 플레이어의 장비는 이미 보유한 자산이므로, 획득 선택과 희생 선택의 체감 가치가 구조적으로 다르다.</li>
+<li><strong>손실 회피의 경계 조건</strong>: 손실 회피는 <strong>소유물을 강제 선택으로 포기할 때</strong> 가장 강하게 작동한다<sup>[6]</sup>. Inverse의 희생 메커니즘은 정확히 이 조건(소유 장비 + 강제 선택)을 충족한다.</li>
+<li><strong>손실의 주의 포획</strong>: 손실은 이득보다 더 많은 주의, 각성, 인지 자원을 소비하며, 이는 손실 회피와 독립적으로 작동하는 별도의 현상이다<sup>[7]</sup>.</li>
+</ul>
+
+<p style="color: #888; font-size: 0.85em; margin-top: 30px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
+[5] Kahneman, D., Knetsch, J. L., &amp; Thaler, R. H. (1990). "Experimental Tests of the Endowment Effect and the Coase Theorem." <em>Journal of Political Economy</em>, 98(6), 1325&ndash;1348.<br/>
+[6] Novemsky, N., &amp; Kahneman, D. (2005). "The Boundaries of Loss Aversion." <em>Journal of Marketing Research</em>, 42(2), 119&ndash;128.<br/>
+[7] Yechiam, E., &amp; Hochman, G. (2013). "Losses as Modulators of Attention: Review and Analysis of the Unique Effects of Losses over Gains." <em>Psychological Bulletin</em>, 139(2), 497&ndash;518.
+</p>
+
+
+
+<!-- ============================================================ -->
+<!-- SECTION 3: POTENTIAL SYSTEM -->
+<!-- ============================================================ -->
+
+<h1 id="potential-system">3. 포텐셜 기반 동적 맵 시스템</h1>
+
+<h2 id="macro-potential">3.1 슈뢰딩거 포텐셜의 거시적 적용</h2>
+
+<p>V&amp;C의 슈뢰딩거 방정식 기반 보스 AI는 <strong>개별 플레이어의 실시간 행동</strong>을 포텐셜로 변환했다. Inverse에서는 동일한 수학적 프레임워크를 <strong>집단 행동(Aggregate Behavior)</strong>에 적용한다.</p>
+
+<p>V&amp;C에서의 포텐셜:</p>
+<p><span class="math display">\[ V(x) = \text{개인 플레이어의 습관에서 도출된 퍼텐셜} \]</span></p>
+
+<p>Inverse에서의 포텐셜:</p>
+<p><span class="math display">\[ \Phi(r, t) = \frac{\rho(r, t)}{\rho_{\text{total}}(t)} \]</span></p>
+
+<table>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+<th>범위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(\Phi(r, t)\)</td>
+<td>시간 \(t\)에서 루트 \(r\)의 포텐셜</td>
+<td>\([0, 1]\)</td>
+</tr>
+<tr>
+<td>\(\rho(r, t)\)</td>
+<td>시간 구간 \(t\)에서 루트 \(r\)을 선택한 유저 수</td>
+<td>\(\mathbb{N}\)</td>
+</tr>
+<tr>
+<td>\(\rho_{\text{total}}(t)\)</td>
+<td>같은 구간의 전체 유저 수</td>
+<td>\(\mathbb{N}^+\)</td>
+</tr>
+</tbody>
+</table>
+
+<blockquote>
+<p><strong>설계 의도:</strong> V&amp;C는 개인 적응이므로 런타임 실시간 처리가 필요했다. Inverse는 집단 패턴이므로 서버 사이드 배치(Batch) 처리가 맞다. 포텐셜은 시즌 단위 또는 일 단위로 갱신하며, 유저 입장에서는 "어제랑 맵이 다른데?" 하는 신선함이 유지된다.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="density-difficulty">3.2 유저 밀도 함수와 난이도 조정</h2>
+
+<p>포텐셜 \(\Phi(r, t)\)로부터 세 가지 맵 파라미터가 결정된다:</p>
+
+<h3>난이도 배율 (Difficulty Multiplier)</h3>
+<p><span class="math display">\[ D(r) = 1 + \beta \cdot \Phi(r, t) \]</span></p>
+<p>유저가 많이 가는 루트일수록 난이도가 올라간다. \(\beta\)는 난이도 민감도 계수.</p>
+
+<h3>미믹 확률 (Mimic Probability)</h3>
+<p><span class="math display">\[ P_{\text{mimic}}(r) = \Phi(r, t) \cdot \lambda \]</span></p>
+<p>자주 가는 곳의 보물상자는 미믹일 확률이 높다. \(\lambda\)는 미믹 출현 계수.</p>
+
+<h3>실제 보상 확률 (Reward Probability)</h3>
+<p><span class="math display">\[ P_{\text{reward}}(r) = \big(1 - \Phi(r, t)\big) \cdot \mu \]</span></p>
+<p>자주 안 가는 곳에만 진짜 보상이 생성된다. \(\mu\)는 보상 생성 계수.</p>
+
+<table>
+<thead>
+<tr>
+<th>루트 유형</th>
+<th>\(\Phi\) 값</th>
+<th>난이도</th>
+<th>미믹 확률</th>
+<th>보상 확률</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>인기 루트</td>
+<td>높음 (~0.8)</td>
+<td>1.8배</td>
+<td>높음</td>
+<td>낮음</td>
+</tr>
+<tr>
+<td>보통 루트</td>
+<td>중간 (~0.5)</td>
+<td>1.5배</td>
+<td>중간</td>
+<td>중간</td>
+</tr>
+<tr>
+<td>비인기 루트</td>
+<td>낮음 (~0.2)</td>
+<td>1.2배</td>
+<td>낮음</td>
+<td>높음</td>
+</tr>
+</tbody>
+</table>
+
+<p style="color: #888; font-size: 0.9em;"><em>※ 위 수치는 개념 설명을 위한 예시이며, 실제 값은 프로토타이핑 후 밸런싱 과정에서 조정됩니다.</em></p>
+
+<hr />
+
+<h2 id="walkthrough-destruction">3.3 공략의 자기파괴성</h2>
+
+<p>이 시스템의 핵심 특성은 <strong>공략(Walkthrough)이 구조적으로 자기파괴</strong>된다는 것이다.</p>
+
+<p>공략이 게시되었을 때의 인과 체인:</p>
+
+<ol>
+<li>공략 게시: "1-3 스테이지는 오른쪽 루트가 쉽다"</li>
+<li>유저 쏠림: \(\rho(r_{\text{right}}, t) \uparrow\)</li>
+<li>포텐셜 상승: \(\Phi(r_{\text{right}}, t) \uparrow\)</li>
+<li>서버 재계산: \(D(r_{\text{right}}) \uparrow\), \(P_{\text{mimic}}(r_{\text{right}}) \uparrow\)</li>
+<li>결과: 공략을 따라간 유저가 더 어려운 맵과 미믹을 만남</li>
+</ol>
+
+<p><span class="math display">\[ \frac{\partial \Phi}{\partial t}\bigg|_{r_{\text{guide}}} > 0 \implies \frac{\partial D}{\partial t}\bigg|_{r_{\text{guide}}} > 0 \]</span></p>
+
+<p><strong>공략 자체가 자기파괴적 정보(Self-Defeating Information)가 된다.</strong></p>
+
+<blockquote>
+<p>커뮤니티에서 발생하는 현상 예측: "야 그 공략 따라갔다가 미믹 세 개 만남 ㅋㅋ"가 콘텐츠가 된다. 공략이 무의미해지는 것이 아니라 <strong>공략 자체가 메타게임</strong>이 된다. "지금 이 루트는 사람이 몰렸으니까 피해야 한다"가 새로운 전략이 된다.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="update-cycle">3.4 업데이트 주기와 서버 아키텍처</h2>
+
+<table>
+<thead>
+<tr>
+<th>갱신 주기</th>
+<th>장점</th>
+<th>단점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>실시간</td>
+<td>즉각 반영, 공략 무력화 빠름</td>
+<td>서버 부하 높음, "아까랑 다른데?" 배신감</td>
+</tr>
+<tr>
+<td>일 단위</td>
+<td>적절한 반응 속도, 부하 낮음</td>
+<td>24시간 내 공략 유효</td>
+</tr>
+<tr>
+<td>시즌 단위</td>
+<td>안정적, 대규모 메타 시프트</td>
+<td>시즌 내 고착 가능</td>
+</tr>
+<tr>
+<td><strong>임계값 기반</strong></td>
+<td>유저 쏠림 감지 시에만 갱신</td>
+<td>구현 복잡도 높음</td>
+</tr>
+</tbody>
+</table>
+
+<p>포텐셜 변동이 임계값을 초과했을 때만 재계산하는 <strong>임계값 트리거 방식</strong>이 가장 적절하다:</p>
+
+<p><span class="math display">\[ |\Delta\Phi(r, t)| > \epsilon \implies \text{Recalculate}(r) \]</span></p>
+
+<p>이 방식은 유저가 급격히 몰릴 때만 반응하므로, 서버 부하를 최소화하면서 공략 자기파괴를 보장한다.</p>
+
+<p>Cold Start 대응: 서비스 초기 또는 유저 수가 통계적으로 유의미하지 않은 구간에서는 \(\Phi(r, t)\)를 균등 분포(\(\Phi = 1/|R|\))로 초기화하여 모든 루트를 동일 난이도로 유지한다. 포텐셜 시스템은 최소 유저 수 임계값 \(N_{\min}\)을 초과한 시점부터 활성화된다.</p>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 4: META ECONOMY -->
+<!-- ============================================================ -->
+
+<h1 id="meta-economy">4. 다회차 경제 시스템</h1>
+
+<h2 id="dependency-currency">4.1 의존도 기반 메타 재화</h2>
+
+<p>로그라이크는 다회차(Multi-Run) 게임이다. 런을 반복할수록 메타 진행(Meta-Progression)이 축적되어야 한다. Inverse의 메타 재화는 <strong>장비 의존도(Dependency)</strong>에 비례한다.</p>
+
+<p>런 \(k\)에서 장비 \(e_i\)에 대한 의존도:</p>
+
+<p><span class="math display">\[ D_i^{(k)} = \frac{\text{usage}(e_i)}{\text{usage}_{\text{total}}} \]</span></p>
+
+<p>\(\text{usage}\)는 해당 장비로 처치한 적의 수, 사용한 특수능력 횟수, 받은 피해 흡수량 등의 복합 지표이다.</p>
+
+<p>장비 \(e_i\)를 <strong>희생</strong>했을 때 획득하는 메타 재화:</p>
+
+<p><span class="math display">\[ R_i^{(k)} = D_i^{(k)} \times V_i \times \alpha \]</span></p>
+
+<table>
+<thead>
+<tr>
+<th>기호</th>
+<th>정의</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>\(D_i^{(k)}\)</td>
+<td>런 \(k\)에서 장비 \(e_i\)의 의존도</td>
+</tr>
+<tr>
+<td>\(V_i\)</td>
+<td>장비 \(e_i\)의 기본 가치</td>
+</tr>
+<tr>
+<td>\(\alpha\)</td>
+<td>메타 재화 변환 계수</td>
+</tr>
+</tbody>
+</table>
+
+<p><strong>핵심: 이번 런에서 많이 의존한 장비를 버릴수록 보상이 크다.</strong></p>
+
+<hr />
+
+<h2 id="comfort-zone">4.2 컴포트존 포기의 보상 구조</h2>
+
+<p>이 시스템이 만들어내는 딜레마:</p>
+
+<ul>
+<li>장비 A를 3스테이지 동안 메인으로 사용했다 &rarr; \(D_A\) 높음</li>
+<li>A를 지금 희생하면 &rarr; \(R_A\) 높음 (메타 재화 많이 획득)</li>
+<li>하지만 A 없이 남은 스테이지를 버텨야 한다</li>
+</ul>
+
+<p><strong>컴포트존을 버릴수록 보상이 크다.</strong> 가장 잘 쓰는 무기를 포기하는 것이 가장 가치 있는 선택이다. 손실 회피를 정면으로 역이용한 구조이다. 잃는 고통이 클수록 보상도 크니까 감정적으로 상쇄된다.</p>
+
+<blockquote>
+<p><strong>설계 의도:</strong> "숙련도가 높은 아이템을 매 회차 들고가서 올리고, 특정 회차에 버려서 재화 수확"하는 파밍 루프를 방지하기 위해, 의존도를 다회차 누적이 아닌 <strong>해당 런 내 사용량</strong>으로 측정한다. 매 런마다 딜레마가 새로 생성된다.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="survival-vs-growth">4.3 런 내 생존 vs 장기 성장 딜레마</h2>
+
+<p>런 \(k\)에서의 총 메타 재화:</p>
+
+<p><span class="math display">\[ M^{(k)} = \sum_{i \in \text{Sacrificed}} R_i^{(k)} = \sum_{i \in \text{Sacrificed}} D_i^{(k)} \cdot V_i \cdot \alpha \]</span></p>
+
+<p>플레이어는 매 희생에서 두 축 사이의 균형을 잡아야 한다:</p>
+
+<table>
+<thead>
+<tr>
+<th>축</th>
+<th>선택</th>
+<th>결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>생존 우선</strong></td>
+<td>의존도 낮은 장비부터 희생</td>
+<td>이번 런 클리어 확률 ↑, 메타 재화 ↓</td>
+</tr>
+<tr>
+<td><strong>성장 우선</strong></td>
+<td>의존도 높은 장비를 희생</td>
+<td>이번 런 클리어 확률 ↓, 메타 재화 ↑</td>
+</tr>
+</tbody>
+</table>
+
+
+
+<!-- ============================================================ -->
+<!-- SECTION 5: WORLD & NARRATIVE -->
+<!-- ============================================================ -->
+
+<h1 id="world-narrative">5. 세계관 &amp; 서사 구조</h1>
+
+<h2 id="legacy">5.1 선대 용사의 유산</h2>
+
+<p>Inverse의 세계관은 핵심 메커니즘에 서사적 정당성을 부여한다.</p>
+
+<table>
+<thead>
+<tr>
+<th>메커니즘</th>
+<th>세계관 정당화</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>최강 상태로 시작</td>
+<td>선대 용사들의 장비를 <strong>물려받았다</strong></td>
+</tr>
+<tr>
+<td>스테이지마다 반납</td>
+<td>빌린 힘이므로 던전 진행 중 <strong>원래 주인에게 돌아간다</strong></td>
+</tr>
+<tr>
+<td>최약 상태로 최종 보스</td>
+<td>"선대 용사들은 이 모든 걸 가지고도 못 이겼다. 나는 아무것도 없이 이긴다"</td>
+</tr>
+<tr>
+<td>다회차 진행</td>
+<td>실패한 용사의 장비가 <strong>다음 용사의 유산</strong>이 된다</td>
+</tr>
+<tr>
+<td>메타 재화 (의존도 보상)</td>
+<td>장비를 돌려줄 때 용사의 경험이 <strong>기억</strong>으로 남는다</td>
+</tr>
+</tbody>
+</table>
+
+<hr />
+
+<h2 id="return">5.2 반납의 서사적 정당성: 귀환</h2>
+
+<p>장비가 사라지는 것이 아니다. <strong>원래 주인에게 돌아가는 것</strong>이다.</p>
+
+<ul>
+<li>1스테이지 진입 전: 초대 용사의 검을 반납 &rarr; 검이 빛나며 사라짐</li>
+<li>2스테이지 진입 전: 2대 용사의 방패를 반납 &rarr; 방패가 제자리로 귀환</li>
+<li>...</li>
+</ul>
+
+<p>"상실"이 아니라 <strong>"귀환"</strong>이다. 뺏기는 것이 아니라 돌려주는 것이다. 이 프레임 전환은 손실 회피의 감정 자체를 변환한다.</p>
+
+<hr />
+
+<h2 id="failure-meaning">5.3 실패의 의미: 다음 용사를 위한 유산</h2>
+
+<p>다회차 구조에서 플레이어의 실패는 서사적 의미를 갖는다:</p>
+
+<ol>
+<li>1회차 용사가 3스테이지에서 쓰러진다</li>
+<li>그 용사가 사용했던 장비와 경험이 유산(Legacy)으로 기록된다</li>
+<li>2회차 용사는 더 정제된 장비 세트와 선대의 기억(메타 업그레이드)으로 시작한다</li>
+</ol>
+
+<p>플레이어의 실패가 <strong>단순한 게임 오버</strong>가 아니라, 다음 세대를 위한 투자가 된다. 실패할수록 다음 용사의 출발점이 높아지는 구조.</p>
+
+<hr />
+
+<h2 id="climax">5.4 클라이맥스: 맨몸의 최종전</h2>
+
+<p>기존 로그라이크의 감정 곡선:</p>
+<ul>
+<li>"나 이렇게 강해졌다" &rarr; "보스도 강하다" &rarr; "와 이겼다!"</li>
+</ul>
+
+<p>Inverse의 감정 곡선:</p>
+<ul>
+<li>"나 이것밖에 안 남았다" &rarr; "보스가 온다" &rarr; "이걸로 이겨야 한다"</li>
+</ul>
+
+<p>후자가 압도적으로 긴장감이 높다. 최종 보스 앞에 선 용사의 모습: 선대 용사들의 갑옷도, 검도, 마법도 전부 돌려줬다. 남은 건 맨몸의 자신뿐이다.</p>
+
+<blockquote>
+<p>"선대 용사들은 이 모든 것을 가지고도 쓰러졌다. 그러나 나는 아무것도 가지지 않은 채로 여기에 섰다."</p>
+</blockquote>
+
+<p>이것이 Inverse의 클라이맥스이다.</p>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 6: COMPARISON -->
+<!-- ============================================================ -->
+
+<h1 id="comparison">6. 기존 로그라이크 비교분석</h1>
+
+<h2 id="emotion-loop-compare">6.1 감정 루프 비교</h2>
+
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>Hades</th>
+<th>Slay the Spire</th>
+<th>Dark Souls</th>
+<th>Inverse</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>핵심 감정</strong></td>
+<td>획득 도파민 + 서사 몰입</td>
+<td>덱 빌딩의 시너지 쾌감</td>
+<td>극복의 성취감</td>
+<td>희생의 서스펜스 + 손실 긴장</td>
+</tr>
+<tr>
+<td><strong>스테이지당 감정 이벤트</strong></td>
+<td>1 (보상 선택)</td>
+<td>1 (카드/유물 획득)</td>
+<td>연속 (전투 자체)</td>
+<td>2 (희생 + 결과 확인)</td>
+</tr>
+<tr>
+<td><strong>RNG 의존도</strong></td>
+<td>높음 (신 축복 랜덤)</td>
+<td>높음 (카드 풀 랜덤)</td>
+<td>없음 (순수 스킬)</td>
+<td>낮음 (선택 기반)</td>
+</tr>
+<tr>
+<td><strong>진행 곡선</strong></td>
+<td>약 &rarr; 강</td>
+<td>약 &rarr; 강</td>
+<td>약 &rarr; 강 (플레이어 숙련)</td>
+<td><strong>강 &rarr; 약</strong></td>
+</tr>
+<tr>
+<td><strong>최종 보스 체감</strong></td>
+<td>"내가 이만큼 강해졌다"</td>
+<td>"이 덱이면 된다"</td>
+<td>"드디어 패턴 외웠다"</td>
+<td><strong>"아무것도 없이 이긴다"</strong></td>
+</tr>
+</tbody>
+</table>
+
+<hr />
+
+<h2 id="strategy-compare">6.2 전략 깊이 비교</h2>
+
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>기존 로그라이크</th>
+<th>Inverse</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>핵심 질문</strong></td>
+<td>"뭘 가져갈까?"</td>
+<td>"뭘 버릴까?"</td>
+</tr>
+<tr>
+<td><strong>정보 조건</strong></td>
+<td>보상 풀 랜덤 (불완전 정보)</td>
+<td>보유 장비 확정 + 보스 힌트 (비대칭 정보)</td>
+</tr>
+<tr>
+<td><strong>선택의 무게</strong></td>
+<td>얻는 것 중 택 1 (기회비용 낮음)</td>
+<td>있는 것 중 포기 (기회비용 높음)</td>
+</tr>
+<tr>
+<td><strong>실수의 대가</strong></td>
+<td>약한 아이템 획득 (런 약화)</td>
+<td>필요한 장비 상실 (복구 불가)</td>
+</tr>
+<tr>
+<td><strong>공략 저항성</strong></td>
+<td>낮음 (최적해 수렴)</td>
+<td><strong>높음 (포텐셜 시스템)</strong></td>
+</tr>
+</tbody>
+</table>
+
+<hr />
+
+<h2 id="replayability-compare">6.3 리플레이어빌리티 비교</h2>
+
+<table>
+<thead>
+<tr>
+<th>리플레이 요인</th>
+<th>기존 로그라이크</th>
+<th>Inverse</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>런 간 차이의 원천</strong></td>
+<td>RNG (무엇이 나오느냐)</td>
+<td>선택 (무엇을 버리느냐) + 포텐셜 변동</td>
+</tr>
+<tr>
+<td><strong>공략 수명</strong></td>
+<td>패치까지 유효</td>
+<td>자기파괴 (시간에 따라 무효화)</td>
+</tr>
+<tr>
+<td><strong>메타 변화 주기</strong></td>
+<td>개발자 패치 의존</td>
+<td>유저 행동에 의해 자동 변화</td>
+</tr>
+<tr>
+<td><strong>다회차 동기</strong></td>
+<td>"이번엔 좋은 아이템 나오겠지"</td>
+<td>"이번엔 다른 순서로 버려보자" + 메타 재화</td>
+</tr>
+</tbody>
+</table>
+
+
+<!-- ============================================================ -->
+<!-- SECTION 7: PROTOTYPE -->
+<!-- ============================================================ -->
+
+<h1 id="prototype">7. 프로토타이핑 검증 목표</h1>
+
+<h2 id="proto-params">7.1 프로토타입 파라미터</h2>
+
+<p><strong>Project: Inverse Roguelike (Prototype Logic)</strong></p>
+
+<h3>시작 상태</h3>
+<p>플레이어는 <strong>전설 장비 5개</strong>를 모두 착용하고 시작한다.</p>
+
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>초기 공격력</td>
+<td>100</td>
+</tr>
+<tr>
+<td>초기 방어력</td>
+<td>100</td>
+</tr>
+<tr>
+<td>특수능력</td>
+<td>5개 (장비당 1개)</td>
+</tr>
+<tr>
+<td>스테이지 수</td>
+<td>5</td>
+</tr>
+<tr>
+<td>장비 수</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+
+<h3>스테이지 진행</h3>
+<p>총 5개의 스테이지. 각 스테이지 진입 전 <strong>반드시 장비 하나를 반납</strong>해야 문이 열린다.</p>
+
+<h3>정보 비대칭 (Suspense)</h3>
+
+<table>
+<thead>
+<tr>
+<th>정보 유형</th>
+<th>제공 방식</th>
+<th>예시</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>플레이어 정보</td>
+<td><strong>완전 공개</strong> (내 장비 능력치)</td>
+<td>공격력 100, 방어력 100, 특수능력 목록</td>
+</tr>
+<tr>
+<td>적 정보</td>
+<td><strong>힌트만 제공</strong> (다음 보스 약점)</td>
+<td>"불타는 기운이 느껴집니다..."</td>
+</tr>
+</tbody>
+</table>
+
+<h3>전투 시뮬레이션</h3>
+<p>장비를 반납한 후, 남은 장비로 보스와의 전투 결과를 시뮬레이션한다.</p>
+
+<p>전투력 계산:</p>
+<p><span class="math display">\[ \text{Combat} = \text{ATK}_{\text{remaining}} \times \text{TypeMatch} - \text{Boss}_{\text{DEF}} \]</span></p>
+
+<p>여기서 \(\text{TypeMatch}\)는 남은 장비의 속성과 보스 약점의 일치도이다. 힌트를 잘 읽고 올바른 장비를 남겼는지에 따라 전투 결과가 달라진다.</p>
+
+<hr />
+
+<h2 id="proto-hypothesis">7.2 검증 가설</h2>
+
+<p>프로토타입에서 검증하고자 하는 핵심 가설:</p>
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>가설</th>
+<th>검증 기준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>H1</strong></td>
+<td>"희생의 서스펜스"가 "획득의 도파민"을 대체할 수 있는가?</td>
+<td>플레이어가 희생 결정에서 주저하는 시간 &gt; 0</td>
+</tr>
+<tr>
+<td><strong>H2</strong></td>
+<td>역진행 곡선이 무력감이 아닌 긴장감을 유발하는가?</td>
+<td>후반 스테이지에서의 이탈률이 전반보다 높지 않음</td>
+</tr>
+<tr>
+<td><strong>H3</strong></td>
+<td>힌트 기반 정보 비대칭이 전략적 깊이를 만들어내는가?</td>
+<td>플레이어의 희생 순서가 120가지 경로 중 유의미하게 분산됨</td>
+</tr>
+<tr>
+<td><strong>H4</strong></td>
+<td>의존도 보상이 "컴포트존 포기" 동기를 만들어내는가?</td>
+<td>의존도 상위 장비의 희생 비율이 하위 장비보다 유의미하게 높음</td>
+</tr>
+<tr>
+<td><strong>H5</strong></td>
+<td>메타 재화 딜레마가 다회차 동기를 유발하는가?</td>
+<td>2회차 이상 플레이 시, 이전 런과 다른 희생 순서를 선택하는 비율 &gt; 50%</td>
+</tr>
+<tr>
+<td><strong>H6</strong></td>
+<td>경로 공간(\(n!\))과 보스 배치의 조건부 불확실성이 단일 최적해 수렴을 구조적으로 방지하는가?</td>
+<td>몬테카를로 시뮬레이션(N=10,000런)에서 특정 희생 순서의 점유율이 균등 분포(1/120)로부터 유의미하게 이탈하지 않음</td>
+</tr>
+</tbody>
+</table>
+
+<hr />
+
+<h2 id="proto-metrics">7.3 측정 지표</h2>
+
+<table>
+<thead>
+<tr>
+<th>지표</th>
+<th>정의</th>
+<th>목적</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decision Time</strong></td>
+<td>희생 결정까지 걸리는 평균 시간(초)</td>
+<td>서스펜스 강도 측정. 길수록 긴장 높음</td>
+</tr>
+<tr>
+<td><strong>Stage Retention</strong></td>
+<td>스테이지별 계속 플레이 비율</td>
+<td>역진행이 이탈을 유발하는지 확인</td>
+</tr>
+<tr>
+<td><strong>Path Entropy</strong></td>
+<td>전체 플레이어의 희생 순서 엔트로피</td>
+<td>선택 다양성 측정. 높을수록 전략 깊이 있음</td>
+</tr>
+<tr>
+<td><strong>Retry Rate</strong></td>
+<td>클리어 실패 후 재시도 비율</td>
+<td>핵심 루프의 중독성 측정</td>
+</tr>
+<tr>
+<td><strong>Sacrifice Regret</strong></td>
+<td>희생 후 "잘못 버렸다" 체감 빈도 (설문)</td>
+<td>손실 프레임이 무력감이 아닌 긴장감으로 작동하는지 확인</td>
+</tr>
+<tr>
+<td><strong>Dependency Sacrifice Rate</strong></td>
+<td>의존도 상위 50% 장비의 희생 비율</td>
+<td>컴포트존 포기 동기 측정. 높을수록 보상 체감 작동</td>
+</tr>
+<tr>
+<td><strong>Run Variation</strong></td>
+<td>2회차 이상에서 이전 런과 다른 경로를 택한 비율</td>
+<td>메타 재화가 다회차 전략 변화를 유도하는지 확인</td>
+</tr>
+</tbody>
+</table>
+
+<p>Path Entropy 계산:</p>
+
+<p><span class="math display">\[ H = -\sum_{p \in \text{Paths}} P(p) \log_2 P(p) \]</span></p>
+
+<p>최대 엔트로피 (\(H_{\max} = \log_2 120 \approx 6.91\))에 가까울수록 플레이어가 다양한 전략을 시도하고 있다는 의미이다. 특정 경로로 수렴(\(H \to 0\))하면 최적해가 존재하며 전략 깊이가 얕다는 신호이다.</p>
+
+<blockquote>
+<p><strong>검증 목표 요약:</strong> "버리는 것이 재미있을 수 있는가?"와 "많이 쓴 것을 버리고 싶게 만들 수 있는가?"에 대한 답을 데이터로 증명한다. 이것은 프로토타입 없이는 증명할 수 없는 영역이다.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="proto-simulation">7.4 사전 검증: AI 시뮬레이션</h2>
+
+<p>플레이테스트 이전에, AI 에이전트를 이용한 시뮬레이션으로 <strong>전략 수렴 여부</strong>를 먼저 검증한다. 최적해가 존재하면 게임의 전략 깊이가 없다는 뜻이므로, 사람을 모으기 전에 구조적 결함을 걸러내는 단계이다.</p>
+
+<h3>V&amp;C 보스 AI 자산 재활용</h3>
+
+<p>V&amp;C의 <code>boss_ai_v4_dynamic.py</code>에 이미 구현된 시스템을 Inverse 시뮬레이션에 재활용한다.</p>
+
+<table>
+<thead>
+<tr>
+<th>V&amp;C 기존 자산</th>
+<th>Inverse 재활용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BossPersonality</code> (σ-φ 2축 성격)</td>
+<td>보스 타입 시스템 &mdash; σ(공격성), φ(집착도)로 보스 속성 정의</td>
+</tr>
+<tr>
+<td><code>get_params()</code> 파라미터 파생 함수</td>
+<td>스테이지별 보스 난이도 자동 생성</td>
+</tr>
+<tr>
+<td><code>TIER_SCALING</code> (티어 1~10)</td>
+<td>스테이지별 보스 강도 스케일링</td>
+</tr>
+<tr>
+<td><code>CLASS_STATS</code> (역할별 스탯)</td>
+<td>전설 장비 5개의 능력치 구조</td>
+</tr>
+<tr>
+<td><code>DereType</code> + 시간 진화 함수</td>
+<td>보스 행동 다양성 &mdash; 힌트의 불확실성 원천</td>
+</tr>
+</tbody>
+</table>
+
+<blockquote>
+<p><strong>설계 연결:</strong> V&amp;C의 σ-φ 2축이 힌트 시스템의 정보 비대칭과 직접 대응한다. 힌트가 σ축 정보만 제공하면 φ축이 불확실성으로 남는다. 이것이 Shannon Entropy \(H(\text{Boss} \mid \text{Hint})\)의 구체적 구현이다.</p>
+</blockquote>
+
+<h3>시뮬레이션 설계</h3>
+
+<h4>에이전트 전략 4종</h4>
+
+<table>
+<thead>
+<tr>
+<th>전략</th>
+<th>희생 규칙</th>
+<th>검증 목적</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Greedy</strong></td>
+<td>의존도 가장 <strong>낮은</strong> 장비부터 희생</td>
+<td>생존 우선 전략의 승률 측정</td>
+</tr>
+<tr>
+<td><strong>Inverse Greedy</strong></td>
+<td>의존도 가장 <strong>높은</strong> 장비부터 희생</td>
+<td>메타 재화 우선 전략의 승률/재화 트레이드오프</td>
+</tr>
+<tr>
+<td><strong>Hint-Based</strong></td>
+<td>힌트를 해석하여 다음 보스에 <strong>불필요한</strong> 장비 희생</td>
+<td>정보 비대칭이 전략적 우위를 만드는지 확인</td>
+</tr>
+<tr>
+<td><strong>Random</strong></td>
+<td>무작위 희생</td>
+<td>베이스라인 (전략 없음)</td>
+</tr>
+</tbody>
+</table>
+
+<h4>시뮬레이션 파라미터</h4>
+
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>런 수 (전략당)</td>
+<td>1,000</td>
+</tr>
+<tr>
+<td>보스 타입 풀</td>
+<td>V&amp;C DereType 기반 5종</td>
+</tr>
+<tr>
+<td>힌트 정확도</td>
+<td>σ축만 공개, φ축 미공개</td>
+</tr>
+<tr>
+<td>장비 5종</td>
+<td>CLASS_STATS 기반 (탱크/근딜/원딜/힐러/서포트 대응)</td>
+</tr>
+</tbody>
+</table>
+
+<h4>판정 기준</h4>
+
+<table>
+<thead>
+<tr>
+<th>결과</th>
+<th>의미</th>
+<th>조치</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>한 전략이 승률 70% 이상 독점</td>
+<td>최적해 존재 &rarr; 전략 깊이 없음</td>
+<td>보스 밸런스 또는 힌트 구조 재설계</td>
+</tr>
+<tr>
+<td>전략별 승률 편차 &lt; 15%</td>
+<td>상황 의존적 &rarr; 전략 깊이 있음</td>
+<td>프로토타입 진행</td>
+</tr>
+<tr>
+<td>Inverse Greedy의 재화가 높지만 승률 낮음</td>
+<td>생존 vs 성장 딜레마 작동</td>
+<td>H4 사전 검증 통과</td>
+</tr>
+<tr>
+<td>Hint-Based가 Random 대비 유의미한 승률 우위</td>
+<td>정보 비대칭이 전략적 의미를 가짐</td>
+<td>H3 사전 검증 통과</td>
+</tr>
+<tr>
+<td>N=10,000 몬테카를로에서 최적 경로 점유율 &lt; 5%</td>
+<td>경로 공간이 수렴을 구조적으로 방지 &rarr; 포텐셜 시스템 없이도 전략 깊이 확보</td>
+<td>H6 사전 검증 통과. 포텐셜 시스템은 추가 보험</td>
+</tr>
+</tbody>
+</table>
+
+<p>시뮬레이션에서 구조적 결함이 발견되지 않으면, 동일 코드베이스 위에 UI를 얹어 플레이어블 프로토타입으로 확장한다.</p>
+
+
+        </div>
+
+        <footer>
+            <p>Inverse Roguelike Design Document</p>
+        </footer>
+    </div>
+</body>
+</html>
