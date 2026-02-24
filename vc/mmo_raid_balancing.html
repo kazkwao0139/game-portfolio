@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMO Raid Balancing Model</title>
+    <script>
+        MathJax = {
+            svg: {
+                fontCache: 'global',
+                scale: 1.05
+            },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    MathJax.startup.promise.then(() => {
+                        document.querySelectorAll('mjx-container svg').forEach(svg => {
+                            svg.style.fill = '#e8e8e8';
+                        });
+                    });
+                }
+            }
+        };
+    </script>
+    <style>
+        mjx-container svg { fill: #e8e8e8 !important; }
+    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js" type="text/javascript"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            color: #e8e8e8;
+            line-height: 1.8;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 60px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 50px;
+        }
+        
+        header h1 {
+            font-size: 2.8em;
+            background: linear-gradient(135deg, #ff6b6b, #ffa500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        
+        header .subtitle {
+            font-size: 1.2em;
+            color: #888;
+            font-weight: 300;
+        }
+        
+        header .confidential {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 20px;
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid #e94560;
+            border-radius: 4px;
+            color: #e94560;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+        
+        header .concept {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 20px;
+            background: rgba(255, 165, 0, 0.2);
+            border: 1px solid #ffa500;
+            border-radius: 4px;
+            color: #ffa500;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+        
+        /* TOC */
+        #TOC {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 30px 40px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        #TOC::before {
+            content: "📑 목차 (Table of Contents)";
+            display: block;
+            font-size: 1.3em;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.3);
+        }
+        
+        #TOC ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        #TOC > ul > li {
+            margin-bottom: 15px;
+        }
+        
+        #TOC ul ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+        
+        #TOC a {
+            color: #aaa;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        #TOC a:hover {
+            color: #ff6b6b;
+        }
+        
+        #TOC > ul > li > a {
+            color: #ddd;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+        
+        .content {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        h1 {
+            font-size: 2em;
+            background: linear-gradient(135deg, #ff6b6b, #ffa500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 60px 0 30px 0;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 107, 107, 0.3);
+        }
+        
+        h2 {
+            font-size: 1.5em;
+            color: #ff6b6b;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.2);
+        }
+        
+        h3 {
+            font-size: 1.2em;
+            color: #ffa500;
+            margin: 30px 0 15px 0;
+        }
+        
+        h4, h5, h6 {
+            color: #ffcc70;
+            margin: 20px 0 10px 0;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            color: #ccc;
+        }
+        
+        strong {
+            color: #fff;
+        }
+        
+        em {
+            color: #ddd;
+        }
+        
+        ul, ol {
+            margin: 15px 0 15px 25px;
+            color: #bbb;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            display: table;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        th {
+            background: rgba(255, 107, 107, 0.15);
+            color: #ff6b6b;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+        
+        td {
+            color: #bbb;
+        }
+        
+        tbody {
+            border: none;
+        }
+        
+        tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        
+        blockquote {
+            border-left: 4px solid #ffa500;
+            padding: 15px 20px;
+            margin: 20px 0;
+            background: rgba(255, 165, 0, 0.1);
+            border-radius: 0 8px 8px 0;
+            color: #ddd;
+        }
+        
+        blockquote strong {
+            color: #ffa500;
+        }
+        
+        code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            color: #ff6b6b;
+        }
+        
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+            color: #0f0;
+        }
+        
+        hr {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin: 40px 0;
+        }
+        
+        .boxed {
+            border: 2px solid #ffa500;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            background: rgba(255, 165, 0, 0.05);
+            text-align: center;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>MMO RAID BALANCING MODEL</h1>
+            <p class="subtitle">반응-확산 방정식 기반 레이드 밸런싱</p>
+            <div class="confidential">CONFIDENTIAL</div>
+            <br>
+            <div class="concept">CONCEPT DOCUMENT</div>
+        </header>
+        
+        <nav id="TOC">
+            <ul>
+                <li><a href="#intro">1. 개요</a></li>
+                <li><a href="#philosophy">2. 설계 철학</a></li>
+                <li><a href="#variables">3. 변수 정의</a></li>
+                <li><a href="#model1">모델 1: 단순 DPS 모델</a>
+                    <ul>
+                        <li><a href="#model1">4~8. 기본 가정, 미분방정식, 해 도출, 예시, 역산</a></li>
+                    </ul>
+                </li>
+                <li><a href="#model2">모델 2: 페이즈 모델</a>
+                    <ul>
+                        <li><a href="#model2">9~15. 페이즈 정의, 연립 방정식, 해 도출, 시간 배분</a></li>
+                    </ul>
+                </li>
+                <li><a href="#model3">모델 3: 공간 확산 모델</a>
+                    <ul>
+                        <li><a href="#model3">16~24. 반응-확산 방정식, 안전 영역, 유효 DPS</a></li>
+                    </ul>
+                </li>
+                <li><a href="#model4">모델 4: 변수 최대 투입 모델 (실전)</a>
+                    <ul>
+                        <li><a href="#model4">30~37. 일반 방정식, 해 존재 증명</a></li>
+                    </ul>
+                </li>
+                <li><a href="#comparison">모델 비교</a>
+                    <ul>
+                        <li><a href="#comparison">49~50. 요약 테이블, 권장 워크플로우</a></li>
+                    </ul>
+                </li>
+                <li><a href="#implementation">구현 가이드</a>
+                    <ul>
+                        <li><a href="#implementation">51~52. 사전 계산 파이프라인, 동적 난이도</a></li>
+                    </ul>
+                </li>
+                <li><a href="#qa">예상 질문 & 답변 (Q&A)</a></li>
+                <li><a href="#summary">최종 요약</a></li>
+                <li><a href="#appendix">부록 A: 슈뢰딩거 방정식 기반 AI 패턴 생성</a>
+                    <ul>
+                        <li><a href="#appendix">A.1~A.11. 2D 수소 원자 → AI 보스 패턴</a></li>
+                    </ul>
+                </li>
+                <li><a href="#appendix-b">부록 B: 설계 비하인드</a></li>
+            </ul>
+        </nav>
+        
+        <div class="content">
+
+<blockquote>
+<strong>저자 주:</strong> 검증이 아직 안 된 계산만 해본 사고실험 모델입니다. 참고만 해 주시면 감사하겠습니다.
+</blockquote>
+
+<h2 id="intro">1. 개요</h2>
+
+<p>기존 MMO 레이드 밸런싱:</p>
+<ul>
+<li>"보스 체력 500만으로 해보자"</li>
+<li>"너무 빨리 죽네, 700만으로 올리자"</li>
+<li>"광역기 대미지 3만? 일단 넣어보고 조정하자"</li>
+</ul>
+
+<p>→ <strong>감(感)과 반복 테스트</strong>에 의존.</p>
+
+<blockquote>
+<strong>본 문서의 접근:</strong> 보스 체력, 페이즈 전환점, 패턴 대미지는 <strong>"감"이 아니라 시스템 변수들의 함수로 도출되는 해(Solution)</strong>이다.
+</blockquote>
+
+<p>본 문서는 PDA 테크니컬 문서의 반응-확산 모델을 MMO 레이드에 치환하여, 다음 질문에 답한다:</p>
+
+<div class="boxed">
+"목표 클리어 타임, 파티 구성, 패턴 다운타임을 고려했을 때, 균형 잡힌 보스 체력은 얼마인가?"
+</div>
+
+<hr />
+
+<h2 id="philosophy">2. 설계 철학</h2>
+
+<h3>PDA 모델과의 대응</h3>
+
+<table>
+<thead>
+<tr><th>PDA (노드 점령)</th><th>MMO (레이드)</th></tr>
+</thead>
+<tbody>
+<tr><td>\(U\) = 노드 영향력</td><td>\(H\) = 보스 체력</td></tr>
+<tr><td>확산 = 플레이어 이동</td><td>확산 = 유저 DPS 분포 + 포지셔닝</td></tr>
+<tr><td>반응 = 채널링</td><td>반응 = 보스 패턴 (광역기, 탱버, 힐체크)</td></tr>
+<tr><td>\(T^*\) = 채널링 시간</td><td>\(T^*\) = 클리어 타임</td></tr>
+</tbody>
+</table>
+
+<h3>핵심 원칙</h3>
+
+<p><span class="math display">\[ \boxed{\text{숫자는 감이 아니라 방정식의 해}} \]</span></p>
+
+<hr />
+
+<h2 id="variables">3. 변수 정의</h2>
+
+<h3>3.1 파티/캐릭터 변수 (입력)</h3>
+
+<table>
+<thead>
+<tr><th>기호</th><th>정의</th><th>단위</th><th>예시</th></tr>
+</thead>
+<tbody>
+<tr><td>\(n\)</td><td>파티 인원</td><td>명</td><td>8, 16, 24</td></tr>
+<tr><td>\(n_d\)</td><td>딜러 수</td><td>명</td><td>파티의 ~60%</td></tr>
+<tr><td>\(n_t\)</td><td>탱커 수</td><td>명</td><td>파티의 ~15%</td></tr>
+<tr><td>\(n_h\)</td><td>힐러 수</td><td>명</td><td>파티의 ~25%</td></tr>
+<tr><td>\(\bar{d}\)</td><td>딜러 평균 DPS</td><td>대미지/초</td><td>10,000</td></tr>
+<tr><td>\(d_t\)</td><td>탱커 DPS</td><td>대미지/초</td><td>\(\approx 0.3\bar{d}\)</td></tr>
+<tr><td>\(d_h\)</td><td>힐러 DPS</td><td>대미지/초</td><td>\(\approx 0.2\bar{d}\)</td></tr>
+<tr><td>\(v\)</td><td>평균 이동속도</td><td>m/s</td><td>7</td></tr>
+</tbody>
+</table>
+
+<h3>3.2 보스/패턴 변수 (입력 또는 도출)</h3>
+
+<table>
+<thead>
+<tr><th>기호</th><th>정의</th><th>단위</th><th>비고</th></tr>
+</thead>
+<tbody>
+<tr><td>\(H\)</td><td>보스 총 체력</td><td>HP</td><td><strong>도출 목표</strong></td></tr>
+<tr><td>\(p\)</td><td>패턴 다운타임 비율</td><td>\([0, 1]\)</td><td>회피/기믹 중 DPS 불가 시간</td></tr>
+<tr><td>\(T^*\)</td><td>목표 클리어 타임</td><td>초</td><td>설계자가 결정</td></tr>
+<tr><td>\(k\)</td><td>페이즈 수</td><td>개</td><td>1, 2, 3, ...</td></tr>
+</tbody>
+</table>
+
+<h3>3.3 공간 변수 (고급 모델)</h3>
+
+<table>
+<thead>
+<tr><th>기호</th><th>정의</th><th>단위</th></tr>
+</thead>
+<tbody>
+<tr><td>\(A_{field}\)</td><td>전투 필드 면적</td><td>\(m^2\)</td></tr>
+<tr><td>\(A_{danger}(t)\)</td><td>시간 \(t\)에서 위험 영역 면적</td><td>\(m^2\)</td></tr>
+<tr><td>\(D\)</td><td>유저 확산 계수 (이동속도 기반)</td><td>\(m^2/s\)</td></tr>
+</tbody>
+</table>
+
+<hr />
+
+<h1 id="model1">모델 1: 단순 DPS 모델</h1>
+
+<h2>4. 기본 가정</h2>
+
+<ul>
+<li>모든 딜러가 동일한 DPS 출력</li>
+<li>패턴은 "DPS 가능/불가능"의 이진 상태</li>
+<li>페이즈 구분 없음 (단일 페이즈)</li>
+</ul>
+
+<h2>5. 미분방정식</h2>
+
+<p>보스 체력 감소율:</p>
+
+<p><span class="math display">\[ \frac{dH}{dt} = -DPS_{eff} \]</span></p>
+
+<p>유효 DPS:</p>
+
+<p><span class="math display">\[ DPS_{eff} = DPS_{total} \times (1 - p) \]</span></p>
+
+<p>총 DPS:</p>
+
+<p><span class="math display">\[ DPS_{total} = n_d \cdot \bar{d} + n_t \cdot d_t + n_h \cdot d_h \]</span></p>
+
+<h2>6. 해 도출</h2>
+
+<p>초기 조건 \(H(0) = H_{boss}\), 종료 조건 \(H(T^*) = 0\)에서:</p>
+
+<p><span class="math display">\[ H_{boss} = DPS_{eff} \times T^* \]</span></p>
+
+<div class="boxed">
+\[ H_{boss} = \left( n_d \cdot \bar{d} + n_t \cdot d_t + n_h \cdot d_h \right) \times (1 - p) \times T^* \]
+</div>
+
+<h2>7. 예시 계산</h2>
+
+<table>
+<thead>
+<tr><th>변수</th><th>값</th></tr>
+</thead>
+<tbody>
+<tr><td>파티 구성</td><td>8인 (딜러 5, 탱커 1, 힐러 2)</td></tr>
+<tr><td>딜러 평균 DPS</td><td>10,000</td></tr>
+<tr><td>탱커 DPS</td><td>3,000</td></tr>
+<tr><td>힐러 DPS</td><td>2,000</td></tr>
+<tr><td>패턴 다운타임</td><td>20% (\(p = 0.2\))</td></tr>
+<tr><td>목표 클리어 타임</td><td>8분 (480초)</td></tr>
+</tbody>
+</table>
+
+<p><span class="math display">\[ DPS_{total} = 5 \times 10000 + 1 \times 3000 + 2 \times 2000 = 57000 \]</span></p>
+
+<p><span class="math display">\[ DPS_{eff} = 57000 \times 0.8 = 45600 \]</span></p>
+
+<p><span class="math display">\[ H_{boss} = 45600 \times 480 = 21,888,000 \]</span></p>
+
+<blockquote>
+<strong>결과:</strong> 8분 클리어를 위한 보스 체력은 약 <strong>2,190만</strong>
+</blockquote>
+
+<h2>8. 역산 활용</h2>
+
+<p>이미 보스 체력이 정해진 경우, 클리어 타임 예측:</p>
+
+<p><span class="math display">\[ T^* = \frac{H_{boss}}{DPS_{eff}} \]</span></p>
+
+<p>또는 필요 DPS 역산:</p>
+
+<p><span class="math display">\[ \bar{d}_{required} = \frac{H_{boss}}{n_d \cdot (1-p) \cdot T^*} - \frac{n_t \cdot d_t + n_h \cdot d_h}{n_d} \]</span></p>
+
+<hr />
+
+<h1 id="model2">모델 2: 페이즈 모델</h1>
+
+<h2>9. 기본 가정</h2>
+
+<ul>
+<li>보스가 \(k\)개의 페이즈를 가짐</li>
+<li>각 페이즈마다 패턴 강도(다운타임)가 다름</li>
+<li>페이즈 전환점은 체력 비율로 결정</li>
+</ul>
+
+<h2>10. 페이즈 정의</h2>
+
+<table>
+<thead>
+<tr><th>페이즈</th><th>체력 구간</th><th>다운타임 \(p_i\)</th><th>특성</th></tr>
+</thead>
+<tbody>
+<tr><td>P1</td><td>100% → \(\theta_1\)</td><td>\(p_1\) (낮음)</td><td>패턴 학습 구간</td></tr>
+<tr><td>P2</td><td>\(\theta_1\) → \(\theta_2\)</td><td>\(p_2\) (중간)</td><td>본격 전투</td></tr>
+<tr><td>P3</td><td>\(\theta_2\) → 0%</td><td>\(p_3\) (높음)</td><td>광폭화/최종 페이즈</td></tr>
+</tbody>
+</table>
+
+<p>여기서 \(\theta_i\)는 페이즈 전환 체력 비율 (예: \(\theta_1 = 0.7\), \(\theta_2 = 0.3\))</p>
+
+<h2>11. 연립 방정식</h2>
+
+<p>각 페이즈의 소요 시간:</p>
+
+<p><span class="math display">\[ T_i = \frac{\Delta H_i}{DPS_{eff,i}} = \frac{(\theta_{i-1} - \theta_i) \cdot H_{boss}}{DPS_{total} \cdot (1 - p_i)} \]</span></p>
+
+<p>총 클리어 타임 제약:</p>
+
+<p><span class="math display">\[ \sum_{i=1}^{k} T_i = T^* \]</span></p>
+
+<h2>12. 3페이즈 예시</h2>
+
+<p>전환점: \(\theta_1 = 0.7\), \(\theta_2 = 0.3\), \(\theta_3 = 0\)</p>
+
+<p>체력 비율:</p>
+<ul>
+<li>P1: 30% (\(1.0 - 0.7\))</li>
+<li>P2: 40% (\(0.7 - 0.3\))</li>
+<li>P3: 30% (\(0.3 - 0.0\))</li>
+</ul>
+
+<p>다운타임: \(p_1 = 0.1\), \(p_2 = 0.2\), \(p_3 = 0.35\)</p>
+
+<p><span class="math display">\[ T_1 = \frac{0.3 \cdot H}{DPS \cdot 0.9} \]</span></p>
+<p><span class="math display">\[ T_2 = \frac{0.4 \cdot H}{DPS \cdot 0.8} \]</span></p>
+<p><span class="math display">\[ T_3 = \frac{0.3 \cdot H}{DPS \cdot 0.65} \]</span></p>
+
+<p>제약 조건:</p>
+
+<p><span class="math display">\[ T_1 + T_2 + T_3 = T^* \]</span></p>
+
+<h2>13. 해 도출</h2>
+
+<p><span class="math display">\[ H \cdot \left( \frac{0.3}{0.9} + \frac{0.4}{0.8} + \frac{0.3}{0.65} \right) = DPS \cdot T^* \]</span></p>
+
+<p><span class="math display">\[ H \cdot \left( 0.333 + 0.5 + 0.462 \right) = DPS \cdot T^* \]</span></p>
+
+<p><span class="math display">\[ H \cdot 1.295 = DPS \cdot T^* \]</span></p>
+
+<div class="boxed">
+\[ H_{boss} = \frac{DPS_{total} \cdot T^*}{1.295} \]
+</div>
+
+<h2>14. 일반화 공식</h2>
+
+<p><span class="math display">\[ H_{boss} = \frac{DPS_{total} \cdot T^*}{\displaystyle\sum_{i=1}^{k} \frac{\theta_{i-1} - \theta_i}{1 - p_i}} \]</span></p>
+
+<p>여기서 \(\theta_0 = 1\) (100%), \(\theta_k = 0\) (0%)</p>
+
+<h2>15. 페이즈 시간 배분</h2>
+
+<p>각 페이즈가 전체 클리어 타임에서 차지하는 비율:</p>
+
+<p><span class="math display">\[ \frac{T_i}{T^*} = \frac{(\theta_{i-1} - \theta_i) / (1 - p_i)}{\displaystyle\sum_{j=1}^{k} (\theta_{j-1} - \theta_j) / (1 - p_j)} \]</span></p>
+
+<h3>설계 가이드</h3>
+
+<table>
+<thead>
+<tr><th>목표</th><th>조정 방법</th></tr>
+</thead>
+<tbody>
+<tr><td>P1을 짧게</td><td>\(\theta_1\) 높이기 (예: 0.7 → 0.8)</td></tr>
+<tr><td>P3를 길게 (클라이맥스)</td><td>\(p_3\) 높이기 또는 \(\theta_2\) 낮추기</td></tr>
+<tr><td>전체 난이도 상승</td><td>모든 \(p_i\) 증가</td></tr>
+</tbody>
+</table>
+
+<hr />
+
+<h1 id="model3">모델 3: 공간 확산 모델</h1>
+
+<h2>16. 개요</h2>
+
+<p>모델 1, 2는 공간을 무시하고 "평균 DPS"만 고려했다. 모델 3은 보스 패턴이 만드는 <strong>위험 영역</strong>과 유저의 <strong>공간적 분포</strong>를 반영한다.</p>
+
+<blockquote>
+<strong>핵심 질문:</strong> "광역기가 필드의 50%를 덮으면, 실제 유효 DPS는 얼마나 감소하는가?"
+</blockquote>
+
+<h2>17. 반응-확산 방정식</h2>
+
+<p>유저의 "DPS 가능 밀도" \(U(x, t)\):</p>
+
+<p><span class="math display">\[ \frac{\partial U}{\partial t} = D \nabla^2 U - k \cdot P(x, t) \cdot U \]</span></p>
+
+<table>
+<thead>
+<tr><th>항</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>\(U(x, t)\)</td><td>위치 \(x\), 시간 \(t\)에서 DPS 가능 밀도</td></tr>
+<tr><td>\(D\)</td><td>확산 계수 (유저 이동속도 기반)</td></tr>
+<tr><td>\(\nabla^2 U\)</td><td>라플라시안 (공간적 퍼짐)</td></tr>
+<tr><td>\(P(x, t)\)</td><td>패턴 함수 (위험 영역 = 1, 안전 = 0)</td></tr>
+<tr><td>\(k\)</td><td>패턴 강도 (즉사 = ∞, 약한 데미지 = 낮음)</td></tr>
+</tbody>
+</table>
+
+<h2>18. 확산 계수 도출</h2>
+
+<p>유저 이동속도 \(v\)와 반응 시간 \(\tau\)에서:</p>
+
+<p><span class="math display">\[ D = \frac{v^2 \cdot \tau}{2} \]</span></p>
+
+<table>
+<thead>
+<tr><th>변수</th><th>의미</th><th>예시</th></tr>
+</thead>
+<tbody>
+<tr><td>\(v\)</td><td>이동속도</td><td>7 m/s</td></tr>
+<tr><td>\(\tau\)</td><td>패턴 인지 후 반응 시간</td><td>0.5초</td></tr>
+<tr><td>\(D\)</td><td>확산 계수</td><td>\(\frac{49 \times 0.5}{2} = 12.25 \, m^2/s\)</td></tr>
+</tbody>
+</table>
+
+<h2>19. 정상 상태 가정</h2>
+
+<p>PDA 모델과 동일하게, 과도 응답을 무시하고 정상 상태를 가정:</p>
+
+<p><span class="math display">\[ \frac{\partial U}{\partial t} = 0 \]</span></p>
+
+<p><span class="math display">\[ D \nabla^2 U = k \cdot P(x) \cdot U \]</span></p>
+
+<blockquote>
+<strong>정당성:</strong> 유저들은 패턴에 적응한 후 "평균적인 포지션"에 수렴한다. 이 평균 상태에서의 유효 DPS를 계산하는 것이 목표.
+</blockquote>
+
+<h2>20. 안전 영역 비율</h2>
+
+<p>필드 면적 \(A_{field}\), 위험 영역 면적 \(A_{danger}\)에서:</p>
+
+<p><span class="math display">\[ \alpha_{safe} = \frac{A_{field} - A_{danger}}{A_{field}} = 1 - \frac{A_{danger}}{A_{field}} \]</span></p>
+
+<h3>패턴별 위험 영역 예시</h3>
+
+<table>
+<thead>
+<tr><th>패턴</th><th>형태</th><th>\(A_{danger}\)</th></tr>
+</thead>
+<tbody>
+<tr><td>원형 광역기</td><td>반경 \(r\) 원</td><td>\(\pi r^2\)</td></tr>
+<tr><td>부채꼴 브레스</td><td>각도 \(\theta\), 반경 \(r\)</td><td>\(\frac{\theta}{360} \pi r^2\)</td></tr>
+<tr><td>직선 레이저</td><td>폭 \(w\), 길이 \(l\)</td><td>\(w \times l\)</td></tr>
+<tr><td>도넛 장판</td><td>내경 \(r_1\), 외경 \(r_2\)</td><td>\(\pi (r_2^2 - r_1^2)\)</td></tr>
+</tbody>
+</table>
+
+<h2>21. 유효 DPS 계산</h2>
+
+<p>이동 오버헤드 \(\beta\) (위험 영역 회피 중 DPS 손실):</p>
+
+<p><span class="math display">\[ \beta = \frac{t_{dodge}}{t_{pattern}} \]</span></p>
+
+<p>유효 DPS:</p>
+
+<p><span class="math display">\[ DPS_{eff} = DPS_{total} \times \alpha_{safe} \times (1 - \beta) \]</span></p>
+
+<h2>22. 이동 오버헤드 모델</h2>
+
+<p>유저가 위험 영역에서 안전 영역으로 이동하는 데 걸리는 시간:</p>
+
+<p><span class="math display">\[ t_{dodge} = \frac{\bar{d}_{escape}}{v} \]</span></p>
+
+<p>평균 탈출 거리 \(\bar{d}_{escape}\):</p>
+
+<p><span class="math display">\[ \bar{d}_{escape} = \sqrt{\frac{A_{danger}}{\pi}} \quad \text{(원형 근사)} \]</span></p>
+
+<h2>23. 통합 공식</h2>
+
+<p>공간 모델의 최종 보스 체력:</p>
+
+<div class="boxed">
+\[ H_{boss} = DPS_{total} \times \alpha_{safe} \times (1 - \beta) \times T^* \]
+</div>
+
+<p>풀어서:</p>
+
+<p><span class="math display">\[ H_{boss} = DPS_{total} \times \left(1 - \frac{A_{danger}}{A_{field}}\right) \times \left(1 - \frac{\bar{d}_{escape}}{v \cdot t_{pattern}}\right) \times T^* \]</span></p>
+
+<h2>24. 예시 계산</h2>
+
+<table>
+<thead>
+<tr><th>변수</th><th>값</th></tr>
+</thead>
+<tbody>
+<tr><td>필드</td><td>원형, 반경 20m → \(A_{field} = 1256 m^2\)</td></tr>
+<tr><td>광역기</td><td>반경 8m → \(A_{danger} = 201 m^2\)</td></tr>
+<tr><td>패턴 주기</td><td>15초</td></tr>
+<tr><td>이동속도</td><td>7 m/s</td></tr>
+<tr><td>총 DPS</td><td>57,000</td></tr>
+<tr><td>목표 클리어 타임</td><td>480초</td></tr>
+</tbody>
+</table>
+
+<p><span class="math display">\[ \alpha_{safe} = 1 - \frac{201}{1256} = 0.84 \]</span></p>
+
+<p><span class="math display">\[ \bar{d}_{escape} = \sqrt{\frac{201}{\pi}} = 8 \, m \]</span></p>
+
+<p><span class="math display">\[ \beta = \frac{8 / 7}{15} = \frac{1.14}{15} = 0.076 \]</span></p>
+
+<p><span class="math display">\[ DPS_{eff} = 57000 \times 0.84 \times 0.924 = 44,254 \]</span></p>
+
+<p><span class="math display">\[ H_{boss} = 44254 \times 480 = 21,241,920 \]</span></p>
+
+<blockquote>
+<strong>결과:</strong> 공간 모델 기준 보스 체력은 약 <strong>2,124만</strong><br>
+(단순 모델의 2,190만과 유사하지만, 공간 요소를 명시적으로 반영)
+</blockquote>
+
+<hr />
+
+<h1 id="model4">모델 4: 변수 최대 투입 모델 (실전)</h1>
+
+<blockquote>
+<strong>저자 주:</strong> 실제로는 수치해석으로 풀어야 할 것 같지만, 너무 복잡해서 일반해 존재 여부만 간단하게 따진다. 해가 존재한다는 것만 증명되면, 나머지는 컴퓨터한테 맡기면 된다.
+</blockquote>
+
+<h2>30. 개요</h2>
+
+<p>모델 1~3은 설명을 위해 변수를 단순화했다. 하지만 실제 MMO는:</p>
+
+<table>
+<thead>
+<tr><th>PDA</th><th>MMO 레이드</th></tr>
+</thead>
+<tbody>
+<tr><td>챔피언 ~20종</td><td>직업/스펙 ~50종 이상</td></tr>
+<tr><td>스킬 2~3개</td><td>스킬 10~20개</td></tr>
+<tr><td>아이템 없음</td><td>장비, 세트 효과, 보석, 각인...</td></tr>
+<tr><td>레벨 1~5</td><td>레벨, 아이템 레벨, 특성...</td></tr>
+<tr><td>4v4</td><td>8인, 16인, 24인...</td></tr>
+</tbody>
+</table>
+
+<p>→ 변수를 "평균"으로 압축하면 정보 손실. <strong>최대한 많은 변수를 방정식에 투입</strong>하는 것이 실전.</p>
+
+<h2>31. 변수 정의</h2>
+
+<h3>DPS 계층</h3>
+
+<table>
+<thead>
+<tr><th>변수</th><th>정의</th><th>예시</th></tr>
+</thead>
+<tbody>
+<tr><td>\(n_c\)</td><td>직업 \(c\)의 인원수</td><td>버서커 2명, 소서리스 1명...</td></tr>
+<tr><td>\(d_c\)</td><td>직업 \(c\)의 기본 DPS</td><td>직업별 상이</td></tr>
+<tr><td>\(\alpha_c(g)\)</td><td>장비 레벨 \(g\)에 따른 스케일링</td><td>아이템 레벨 1600 → ×1.2</td></tr>
+<tr><td>\(\beta_c(buff)\)</td><td>버프 효과 (자버프 + 타버프)</td><td>공증 6% + 치증 8%...</td></tr>
+<tr><td>\(\gamma(syn)\)</td><td>파티 시너지 계수</td><td>헤드/백 어택 시너지 등</td></tr>
+</tbody>
+</table>
+
+<h3>패턴 계층</h3>
+
+<table>
+<thead>
+<tr><th>변수</th><th>정의</th></tr>
+</thead>
+<tbody>
+<tr><td>\(p_k\)</td><td>패턴 \(k\)의 다운타임</td></tr>
+<tr><td>\(A_k\)</td><td>패턴 \(k\)의 위험 영역</td></tr>
+<tr><td>\(t_k\)</td><td>패턴 \(k\)의 주기</td></tr>
+</tbody>
+</table>
+
+<h3>페이즈 계층</h3>
+
+<table>
+<thead>
+<tr><th>변수</th><th>정의</th></tr>
+</thead>
+<tbody>
+<tr><td>\(\theta_m\)</td><td>페이즈 \(m\) 전환 체력비</td></tr>
+<tr><td>\(p_m\)</td><td>페이즈 \(m\)의 총 다운타임</td></tr>
+<tr><td>\(\alpha_m\)</td><td>페이즈 \(m\)의 안전 영역 비율</td></tr>
+<tr><td>\(\beta_m\)</td><td>페이즈 \(m\)의 이동 오버헤드</td></tr>
+</tbody>
+</table>
+
+<h2>32. 일반 방정식</h2>
+
+<p><strong>총 DPS (모든 변수 포함):</strong></p>
+
+<p><span class="math display">\[ DPS_{total} = \sum_{c \in C} n_c \cdot d_c \cdot \alpha_c(g) \cdot \beta_c(buff) \cdot \gamma(syn) \]</span></p>
+
+<p><strong>페이즈별 유효 DPS:</strong></p>
+
+<p><span class="math display">\[ DPS_{eff,m} = DPS_{total} \cdot (1 - p_m) \cdot \alpha_m \cdot (1 - \beta_m) \]</span></p>
+
+<p><strong>페이즈별 소요 시간:</strong></p>
+
+<p><span class="math display">\[ T_m = \frac{(\theta_{m-1} - \theta_m) \cdot H}{DPS_{eff,m}} \]</span></p>
+
+<p><strong>총 클리어 타임 제약:</strong></p>
+
+<p><span class="math display">\[ \sum_{m=1}^{M} T_m = T^* \]</span></p>
+
+<h2>33. 일반해 도출</h2>
+
+<p>제약 조건 대입:</p>
+
+<p><span class="math display">\[ \sum_{m=1}^{M} \frac{(\theta_{m-1} - \theta_m) \cdot H}{DPS_{total} \cdot (1 - p_m) \cdot \alpha_m \cdot (1 - \beta_m)} = T^* \]</span></p>
+
+<p>\(H\)에 대해 정리:</p>
+
+<p><span class="math display">\[ H \cdot \sum_{m=1}^{M} \frac{\theta_{m-1} - \theta_m}{(1 - p_m) \cdot \alpha_m \cdot (1 - \beta_m)} = DPS_{total} \cdot T^* \]</span></p>
+
+<p>분모를 \(\Phi\)로 정의:</p>
+
+<p><span class="math display">\[ \Phi = \sum_{m=1}^{M} \frac{\theta_{m-1} - \theta_m}{(1 - p_m) \cdot \alpha_m \cdot (1 - \beta_m)} \]</span></p>
+
+<p><strong>일반해:</strong></p>
+
+<div class="boxed">
+\[ H = \frac{DPS_{total} \cdot T^*}{\Phi} \]
+</div>
+
+<h2>34. 경계 조건</h2>
+
+<table>
+<thead>
+<tr><th>조건</th><th>수식</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>다운타임 범위</td><td>\(0 \leq p_m < 1\)</td><td>100% 다운타임 불가</td></tr>
+<tr><td>안전 영역</td><td>\(0 < \alpha_m \leq 1\)</td><td>전멸 패턴 불가</td></tr>
+<tr><td>이동 오버헤드</td><td>\(0 \leq \beta_m < 1\)</td><td>이동만 하다 끝나면 안됨</td></tr>
+<tr><td>페이즈 합</td><td>\(\sum_m (\theta_{m-1} - \theta_m) = 1\)</td><td>체력 100%</td></tr>
+<tr><td>DPS 양수</td><td>\(DPS_{total} > 0\)</td><td>딜러 최소 1명</td></tr>
+<tr><td>시간 양수</td><td>\(T^* > 0\)</td><td>클리어 타임 존재</td></tr>
+</tbody>
+</table>
+
+<h2>35. 해 존재 증명</h2>
+
+<p><strong>\(\Phi\)의 각 항 분석:</strong></p>
+
+<ul>
+<li>\(\theta_{m-1} - \theta_m > 0\) — 페이즈 순서상 항상 양수</li>
+<li>\((1 - p_m) > 0\) — 경계 조건 \(p_m < 1\)</li>
+<li>\(\alpha_m > 0\) — 경계 조건</li>
+<li>\((1 - \beta_m) > 0\) — 경계 조건 \(\beta_m < 1\)</li>
+</ul>
+
+<p>→ <strong>모든 항이 양수</strong> → \(\Phi > 0\)</p>
+
+<p><strong>분자 분석:</strong></p>
+
+<ul>
+<li>\(DPS_{total} > 0\) — 경계 조건</li>
+<li>\(T^* > 0\) — 경계 조건</li>
+</ul>
+
+<p>→ <strong>분자 양수</strong></p>
+
+<p><strong>결론:</strong></p>
+
+<p><span class="math display">\[ H = \frac{DPS_{total} \cdot T^*}{\Phi} = \frac{(+)}{(+)} > 0 \]</span></p>
+
+<div class="boxed">
+경계 조건 만족 시, 변수 개수와 무관하게 일반해 항상 존재
+</div>
+
+<h2>36. 해가 발산하지 않는 이유</h2>
+
+<table>
+<thead>
+<tr><th>조건</th><th>결과</th></tr>
+</thead>
+<tbody>
+<tr><td>\(p_m < 1\)</td><td>\((1 - p_m) > 0\) → 분모 각 항 유한</td></tr>
+<tr><td>\(\alpha_m > 0\)</td><td>분모 각 항 유한</td></tr>
+<tr><td>\(\beta_m < 1\)</td><td>\((1 - \beta_m) > 0\) → 분모 각 항 유한</td></tr>
+<tr><td>페이즈 수 \(M\) 유한</td><td>분모 \(\Phi\) 유한</td></tr>
+</tbody>
+</table>
+
+<p>→ 분모 유한, 분자 유한 → <strong>\(H\) 유한</strong></p>
+
+<h2>37. 실전 적용</h2>
+
+<p>복잡도는 \(DPS_{total}\) 계산에 몰려 있다:</p>
+
+<pre><code># 실제 DPS 계산 (의사코드)
+DPS_total = 0
+for class in party:
+    base = class.base_dps
+    gear = gear_scaling(class.item_level)
+    buff = buff_calculator(class.buffs, party.synergy)
+    DPS_total += base * gear * buff
+
+# Φ 계산
+Phi = 0
+for phase in phases:
+    term = phase.hp_ratio / ((1 - phase.downtime) * phase.safe_area * (1 - phase.move_overhead))
+    Phi += term
+
+# 최종 해
+H_boss = DPS_total * T_target / Phi
+</code></pre>
+
+<p>아무리 복잡해도 최종 구조는 동일:</p>
+
+<p><span class="math display">\[ \text{복잡한 DPS 계산} \rightarrow DPS_{total} \text{ (단일 숫자)} \]</span></p>
+<p><span class="math display">\[ \text{복잡한 패턴/페이즈} \rightarrow \Phi \text{ (단일 숫자)} \]</span></p>
+<p><span class="math display">\[ H = DPS_{total} \times T^* / \Phi \rightarrow \text{하드코딩} \]</span></p>
+
+<blockquote>
+<strong>핵심:</strong> 변수가 100개든 1000개든, 경계 조건만 만족하면 해는 무조건 나온다. 복잡한 건 사전 계산 단계에서 끝내고, 게임에는 결과만 넣으면 된다.
+</blockquote>
+
+<hr />
+
+<h1 id="appendix">부록 A: 슈뢰딩거 방정식 기반 AI 패턴 생성</h1>
+
+<p>본 섹션은 밸런싱 모델이 아니라 <strong>AI 보스 패턴 생성</strong> 모델입니다. 2D 수소 원자의 오비탈을 유저 위치 확률 분포로 치환하면, AI가 유저 움직임을 읽고 "맞출 확률이 높은 곳"에 패턴을 발사하는 시스템을 만들 수 있습니다. 1:1 레이드(또는 솔로 보스전)에 적합합니다.</p>
+
+<h2>A.1 개요</h2>
+
+<p>기존 레이드 보스:</p>
+<ul>
+<li>패턴이 고정되어 있음</li>
+<li>유저가 외우면 끝</li>
+<li>"공략 영상 보고 따라하기"</li>
+</ul>
+
+<p>슈뢰딩거 AI 보스:</p>
+<ul>
+<li>유저 위치를 실시간 추적</li>
+<li>확률 분포를 오비탈로 분해</li>
+<li>"유저가 자주 서 있는 곳"에 패턴 발사</li>
+<li><strong>"AI가 네 움직임을 읽는다"</strong></li>
+</ul>
+
+<h2>A.2 물리학 → 게임 치환</h2>
+
+<table>
+<thead>
+<tr><th>양자역학</th><th>게임</th></tr>
+</thead>
+<tbody>
+<tr><td>양성자 (핵)</td><td>보스</td></tr>
+<tr><td>전자</td><td>플레이어</td></tr>
+<tr><td>쿨롱 포텐셜 \(V(r) = -\frac{k}{r}\)</td><td>거리 기반 위험도 (가까울수록 위험)</td></tr>
+<tr><td>\(|\psi|^2\)</td><td>유저가 해당 위치에 있을 확률</td></tr>
+<tr><td>오비탈</td><td>유저 선호 영역 (자주 서 있는 곳)</td></tr>
+<tr><td>바닥 상태</td><td>유저가 보스 근처에서 딜하는 상태</td></tr>
+<tr><td>들뜬 상태</td><td>유저가 멀리 도망간 상태</td></tr>
+</tbody>
+</table>
+
+<h2>A.3 2D 슈뢰딩거 방정식</h2>
+
+<p>2D 극좌표에서:</p>
+
+<p><span class="math display">\[ -\frac{\hbar^2}{2m}\left[ \frac{1}{r}\frac{\partial}{\partial r}\left(r\frac{\partial \psi}{\partial r}\right) + \frac{1}{r^2}\frac{\partial^2 \psi}{\partial \theta^2} \right] + V(r)\psi = E\psi \]</span></p>
+
+<p>쿨롱 포텐셜:</p>
+
+<p><span class="math display">\[ V(r) = -\frac{k}{r} \]</span></p>
+
+<p>게임에서 해석: <strong>보스에 가까울수록 위험도(포텐셜 우물)가 깊다.</strong></p>
+
+<h2>A.4 해 존재 증명</h2>
+
+<h3>변수 분리</h3>
+
+<p><span class="math display">\[ \psi(r, \theta) = R(r) \cdot \Theta(\theta) \]</span></p>
+
+<ul>
+<li>각도 부분: \(\Theta(\theta) = e^{im\theta}\), \(m = 0, \pm1, \pm2, ...\)</li>
+<li>동경 부분: \(R(r)\) → 라게르 다항식 기반 해</li>
+</ul>
+
+<h3>경계 조건</h3>
+
+<table>
+<thead>
+<tr><th>조건</th><th>수식</th><th>의미</th></tr>
+</thead>
+<tbody>
+<tr><td>원점 유한</td><td>\(R(0) < \infty\)</td><td>보스 위치에서 발산 안함</td></tr>
+<tr><td>무한대 소멸</td><td>\(\psi \to 0\) as \(r \to \infty\)</td><td>유저가 무한히 멀리 안감</td></tr>
+<tr><td>정규화</td><td>\(\int |\psi|^2 dA = 1\)</td><td>확률 총합 = 1</td></tr>
+<tr><td>주기성</td><td>\(\Theta(\theta + 2\pi) = \Theta(\theta)\)</td><td>각도 연속</td></tr>
+</tbody>
+</table>
+
+<h3>결론</h3>
+
+<p>2D 수소 원자는 <strong>정확히 풀리는 문제 (exactly solvable)</strong>입니다.</p>
+
+<p>고유함수:</p>
+
+<p><span class="math display">\[ \psi_{n,m}(r, \theta) = R_{n,m}(r) \cdot e^{im\theta} \]</span></p>
+
+<div class="boxed">
+해 존재 ✅ — 무한개의 오비탈 \((n, m)\) 존재 ✅
+</div>
+
+<h2>A.5 오비탈과 유저 행동 패턴</h2>
+
+<table>
+<thead>
+<tr><th>오비탈</th><th>모양</th><th>유저 행동</th><th>AI 패턴 제안</th></tr>
+</thead>
+<tbody>
+<tr><td>1s</td><td>원형, 보스 근처</td><td>근접 딜러, 보스 붙어서 딜</td><td>보스 중심 원형 폭발</td></tr>
+<tr><td>2s</td><td>큰 원형, 멀리</td><td>원거리 딜러, 안전 플레이</td><td>넓은 범위 장판</td></tr>
+<tr><td>2p</td><td>아령 (축 방향)</td><td>좌우로 왔다갔다</td><td>축 방향 레이저</td></tr>
+<tr><td>3p</td><td>큰 아령</td><td>멀리서 좌우 이동</td><td>긴 레이저 + 추적</td></tr>
+<tr><td>3d</td><td>네잎클로버</td><td>대각선 이동 패턴</td><td>십자 or X자 패턴</td></tr>
+</tbody>
+</table>
+
+<h2>A.6 AI 알고리즘</h2>
+
+<pre><code># 슈뢰딩거 AI 보스 (의사코드)
+
+# 1. 유저 위치 히스토리 수집
+position_history = collect_positions(last_N_seconds)
+
+# 2. 확률 밀도 추정 (KDE 등)
+P_observed = kernel_density_estimation(position_history)
+
+# 3. 오비탈 기저로 분해
+#    P(r,θ) ≈ Σ c_nm |ψ_nm|²
+coefficients = {}
+for n in range(1, N_max):
+    for m in range(-n+1, n):
+        c_nm = integrate(P_observed * conj(psi_nm))
+        coefficients[(n, m)] = c_nm
+
+# 4. 가장 큰 계수 찾기 → 유저의 "현재 오비탈"
+dominant_orbital = max(coefficients, key=lambda x: abs(coefficients[x]))
+
+# 5. 해당 오비탈의 밀도 높은 영역에 패턴 발사
+high_density_region = find_maxima(|psi[dominant_orbital]|²)
+fire_pattern(target=high_density_region)
+
+# 6. 유저가 피하면 → 분포 변화 → 새 오비탈 추정 → 반복
+</code></pre>
+
+<h2>A.7 수학적 보장: 완비성 정리</h2>
+
+<p><span class="math display">\[ \boxed{\text{2D 쿨롱 포텐셜} \Rightarrow \text{이산 스펙트럼} \Rightarrow \text{유한개 오비탈로 근사 가능}} \]</span></p>
+
+<p><strong>완비성 정리 (Completeness Theorem):</strong></p>
+
+<p>임의의 \(L^2\) 함수 (= 유저 위치 분포)는 오비탈 기저의 선형 결합으로 표현 가능:</p>
+
+<p><span class="math display">\[ P(r, \theta) = \sum_{n,m} c_{n,m} |\psi_{n,m}|^2 \]</span></p>
+
+<div class="boxed">
+어떤 유저 움직임이든 오비탈로 분해 가능 ✅
+</div>
+
+<h2>A.8 계산 복잡도</h2>
+
+<table>
+<thead>
+<tr><th>단계</th><th>복잡도</th><th>비고</th></tr>
+</thead>
+<tbody>
+<tr><td>위치 수집</td><td>\(O(1)\)</td><td>매 프레임</td></tr>
+<tr><td>KDE 추정</td><td>\(O(N)\)</td><td>N = 히스토리 길이</td></tr>
+<tr><td>오비탈 분해</td><td>\(O(K \cdot N)\)</td><td>K = 오비탈 개수 (보통 10~20개면 충분)</td></tr>
+<tr><td>패턴 결정</td><td>\(O(1)\)</td><td>최대 계수 찾기</td></tr>
+</tbody>
+</table>
+
+<p>→ <strong>실시간 계산 가능</strong> ✅</p>
+
+<h2>A.9 확장: 상태 전이</h2>
+
+<p>유저가 패턴을 피하면 → 오비탈이 바뀜 → 양자역학의 <strong>"상태 전이"</strong>와 동일</p>
+
+<table>
+<thead>
+<tr><th>상황</th><th>양자역학</th><th>게임</th></tr>
+</thead>
+<tbody>
+<tr><td>보스 근처 딜</td><td>바닥 상태 (1s)</td><td>근접 오비탈</td></tr>
+<tr><td>패턴 피해서 도망</td><td>들뜬 상태 (2s, 2p...)</td><td>원거리 오비탈</td></tr>
+<tr><td>다시 접근</td><td>광자 방출 → 바닥 상태</td><td>보스가 "빈 틈" 공격</td></tr>
+</tbody>
+</table>
+
+<p>AI가 상태 전이를 감지하면:</p>
+<ul>
+<li><strong>들뜬 상태 진입 감지</strong> → "도망쳤구나" → 추적 패턴</li>
+<li><strong>바닥 상태 복귀 감지</strong> → "다시 붙었구나" → 근접 폭발</li>
+</ul>
+
+<h2>A.10 제한 사항</h2>
+
+<ul>
+<li><strong>1:1 전용:</strong> 다인 레이드에서는 유저 분포가 복잡해져서 오비탈 분해가 의미 없어질 수 있음</li>
+<li><strong>학습 시간:</strong> 유저 히스토리가 쌓여야 정확한 오비탈 추정 가능 (초반 5~10초는 랜덤 패턴)</li>
+<li><strong>과적합 방지:</strong> 너무 정확하게 맞추면 "피할 수 없는 보스"가 됨 → 의도적으로 노이즈 추가 필요</li>
+</ul>
+
+<h2>A.11 요약</h2>
+
+<table>
+<thead>
+<tr><th>항목</th><th>결과</th></tr>
+</thead>
+<tbody>
+<tr><td>해 존재</td><td>✅ (exactly solvable)</td></tr>
+<tr><td>오비탈 완비성</td><td>✅ (모든 분포 표현 가능)</td></tr>
+<tr><td>실시간 계산</td><td>✅ (\(O(K \cdot N)\))</td></tr>
+<tr><td>발산 없음</td><td>✅ (경계 조건)</td></tr>
+</tbody>
+</table>
+
+<div class="boxed">
+"패턴 외우기" 보스 → "AI가 네 움직임을 읽는" 보스
+</div>
+
+<hr />
+
+<h1 id="comparison">모델 비교</h1>
+
+<h2>49. 요약 테이블</h2>
+
+<table>
+<thead>
+<tr><th>모델</th><th>복잡도</th><th>고려 요소</th><th>사용 시점</th></tr>
+</thead>
+<tbody>
+<tr><td>모델 1 (단순)</td><td>⭐</td><td>평균 DPS, 다운타임</td><td>초기 설계, 빠른 검증</td></tr>
+<tr><td>모델 2 (페이즈)</td><td>⭐⭐</td><td>+ 페이즈별 난이도</td><td>페이즈 전환 타이밍 설계</td></tr>
+<tr><td>모델 3 (공간)</td><td>⭐⭐⭐</td><td>+ 패턴 영역, 이동</td><td>정밀 밸런싱, 패턴 설계</td></tr>
+<tr><td>모델 4 (실전)</td><td>⭐⭐⭐⭐⭐</td><td>+ 직업, 장비, 버프, 시너지...</td><td>실제 라이브 밸런싱</td></tr>
+</tbody>
+</table>
+
+<h2>50. 권장 워크플로우</h2>
+
+<ol>
+<li><strong>모델 1</strong>로 대략적인 체력 범위 산출</li>
+<li><strong>모델 2</strong>로 페이즈 전환점과 시간 배분 설계</li>
+<li><strong>모델 3</strong>으로 개별 패턴의 영역/주기 검증</li>
+<li><strong>모델 4</strong>로 모든 변수 투입, 수치해석으로 최종 값 도출</li>
+<li>플레이테스트 후 실측값으로 보정</li>
+</ol>
+
+<hr />
+
+<h1 id="implementation">구현 가이드</h1>
+
+<h2>51. 사전 계산 파이프라인</h2>
+
+<p>PDA 테크독과 동일한 철학:</p>
+
+<blockquote>
+방정식으로 도출 → 테이블 생성 → 하드코딩
+</blockquote>
+
+<pre><code># 보스 체력 사전 계산 (Python 의사코드)
+def calculate_boss_hp(party_comp, target_time, phase_config):
+    dps_total = sum([
+        party_comp['dealers'] * party_comp['dealer_dps'],
+        party_comp['tanks'] * party_comp['tank_dps'],
+        party_comp['healers'] * party_comp['healer_dps']
+    ])
+    
+    denominator = sum([
+        (phase['hp_ratio']) / (1 - phase['downtime'])
+        for phase in phase_config
+    ])
+    
+    return dps_total * target_time / denominator
+</code></pre>
+
+<pre><code># 런타임 (O(1))
+boss_hp = boss_hp_table[difficulty][party_size]
+</code></pre>
+
+<h2>52. 동적 난이도 조정</h2>
+
+<p>실시간으로 파티 DPS를 측정하여 보스 체력을 조정하는 것은 <strong>권장하지 않음</strong>.</p>
+
+<ul>
+<li>플레이어가 예측 가능한 전략을 세울 수 없음</li>
+<li>"일부러 DPS 낮추기" 같은 어뷰징 유발</li>
+</ul>
+
+<p>대신:</p>
+
+<ul>
+<li>난이도별로 사전 계산된 테이블 사용</li>
+<li>파티 구성(인원수, 역할 비율)에 따른 스케일링만 적용</li>
+</ul>
+
+<hr />
+
+<h2 id="qa">예상 질문 & 답변</h2>
+
+<h3>Q1. 실제 DPS는 유저마다 다른데, 평균으로 퉁쳐도 되나요?</h3>
+
+<p><strong>A:</strong> 충분히 유효합니다.</p>
+
+<p>대수의 법칙(Law of Large Numbers)에 의해, 파티 인원이 8명 이상이면 개인 편차가 평균으로 수렴합니다. 또한 본 모델은 "상위 1% 공략조"가 아닌 <strong>"평균적인 파티"</strong>를 기준으로 설계합니다.</p>
+
+<p>상위 공략조는 목표 시간보다 빠르게 클리어하고, 하위 파티는 느리게 클리어합니다. 이것이 자연스러운 난이도 스펙트럼입니다.</p>
+
+<h3>Q2. 패턴 다운타임 \(p\)는 어떻게 측정하나요?</h3>
+
+<p><strong>A:</strong> 플레이테스트에서 실측합니다.</p>
+
+<ol>
+<li>테스트 파티로 보스 공략</li>
+<li>전체 전투 시간 중 "DPS 불가 시간" 측정</li>
+<li>\(p = t_{downtime} / t_{total}\)</li>
+</ol>
+
+<p>초기 설계 시에는 패턴 타임라인에서 이론값을 추정:</p>
+
+<pre><code>패턴 A: 3초 회피 필요, 30초마다 발동 → 기여도 3/30 = 0.1
+패턴 B: 5초 회피 필요, 45초마다 발동 → 기여도 5/45 = 0.11
+총 다운타임 ≈ 0.1 + 0.11 = 0.21
+</code></pre>
+
+<h3>Q3. 공간 모델이 필요한 경우는 언제인가요?</h3>
+
+<p><strong>A:</strong> 다음 상황에서 유용합니다:</p>
+
+<ul>
+<li>필드 크기가 극단적으로 좁거나 넓을 때</li>
+<li>패턴이 필드의 50% 이상을 덮을 때</li>
+<li>"회피 실패 = 즉사"인 하드코어 레이드</li>
+<li>패턴 배치 자체를 설계할 때 (반경, 지속시간 결정)</li>
+</ul>
+
+<p>일반적인 레이드에서는 <strong>모델 1 + 모델 2</strong>로 충분합니다.</p>
+
+<h3>Q4. 힐체크/탱버는 어떻게 반영하나요?</h3>
+
+<p><strong>A:</strong> 다운타임 \(p\)에 포함됩니다.</p>
+
+<ul>
+<li><strong>힐체크:</strong> 힐러가 DPS 대신 힐에 집중 → 힐러 DPS 기여도 감소 → 이미 \(d_h\)가 낮게 설정됨</li>
+<li><strong>탱버:</strong> 전멸 메커니즘은 "DPS 가능 시간"에 영향 → \(p\)에 반영</li>
+</ul>
+
+<p>명시적으로 분리하려면:</p>
+
+<p><span class="math display">\[ DPS_{eff} = DPS_{total} \times (1 - p_{pattern}) \times (1 - p_{mechanic}) \]</span></p>
+
+<hr />
+
+<h2 id="summary">최종 요약</h2>
+
+<div class="boxed">
+\[ \boxed{H_{boss} = f(DPS, T^*, p, \theta, \alpha)} \]
+</div>
+
+<p><span class="math display">\[ \boxed{\text{보스 체력은 "감"이 아니라 시스템 변수의 함수}} \]</span></p>
+
+<table>
+<thead>
+<tr><th>입력</th><th>출력</th></tr>
+</thead>
+<tbody>
+<tr><td>목표 클리어 타임 \(T^*\)</td><td rowspan="4">보스 체력 \(H_{boss}\)</td></tr>
+<tr><td>파티 구성 (DPS)</td></tr>
+<tr><td>패턴 다운타임 \(p\)</td></tr>
+<tr><td>페이즈 전환점 \(\theta\)</td></tr>
+</tbody>
+</table>
+
+<hr />
+
+<h1 id="appendix-b">부록 B: 설계 비하인드</h1>
+
+<p>PDA의 설계가 일단락되었을 때, 더 이상 머릿속에서 짜낼 것이 없다고 느꼈다. 오랜만에 RPG 게임도 하고, 만화책도 보면서 쉬고 있었다.</p>
+
+<p>그러다 문득 하나의 질문이 떠올랐다.</p>
+
+<blockquote>
+"반응-확산 방정식의 본질은 무엇인가?"
+</blockquote>
+
+<p>그것은 결국 <strong>'저항을 뚫고 나아가는 에이전트'</strong>의 수학적 표현이었다. 그렇다면 이 구조가 PDA에만 유효할 이유가 없다.</p>
+
+<p>MMO 레이드를 바라보니 같은 뼈대가 보였다:</p>
+<ul>
+<li>\(U\) = 보스 체력</li>
+<li>확산 = 플레이어의 공간 이동과 DPS 분포</li>
+<li>반응 = 보스의 패턴과 저항</li>
+</ul>
+
+<p>방정식을 세웠다. 해가 나왔다. 모델 1~4는 그렇게 태어났다.</p>
+
+<p>그리고 자연스러운 다음 질문이 찾아왔다.</p>
+
+<blockquote>
+"수학의 역사에는 수많은 미분방정식이 있다. 그중 게임에 숨결을 불어넣을 수 있는 것이 또 있지 않을까?"
+</blockquote>
+
+<p>나비에-스토크스. 유체역학의 꽃. 써먹을 곳은 있을 것 같았다. 하지만 밀레니엄 문제다. 일반해가 존재하는지조차 증명되지 않았다. 기각.</p>
+
+<p>변분법. 경로 최적화라면 이미 다른 방법이 있다. 굳이 여기서 꺼낼 이유가 없다. 패스.</p>
+
+<p>슈뢰딩거 방정식. 입자의 확률적 위치... 운동량... 무한 우물? 그건 너무 단순해서 재미가 없다.</p>
+
+<p>잠깐. <strong>수소 원자는?</strong></p>
+
+<p><strong>그건 풀린다.</strong></p>
+
+<p>다크소울 같은 1:1 보스전에 쓸 수 있지 않을까? 그 순간, 기묘한 대칭이 눈에 들어왔다.</p>
+
+<table>
+<thead>
+<tr><th>양자역학</th><th>1:1 보스전</th></tr>
+</thead>
+<tbody>
+<tr><td>양성자</td><td>보스</td></tr>
+<tr><td>전자</td><td>플레이어</td></tr>
+<tr><td>\(|\psi|^2\)</td><td>유저가 머무는 확률</td></tr>
+<tr><td>쿨롱 포텐셜</td><td>거리에 따른 위험도</td></tr>
+</tbody>
+</table>
+
+<p><strong>1:1 보스전은 수소 원자와 같은 구조였다.</strong></p>
+
+<p>그리고 결정적인 사실: <strong>2D 수소 원자의 슈뢰딩거 방정식은 정확히 풀린다.</strong> 라게르 다항식에 넣어버리면 그냥 나온다. 1920년대, 컴퓨터도 없던 시절 물리학자들과 수학자들이 연필로 풀어낸 내용이다.</p>
+
+<p>즉, 서버는 <strong>O(1)의 비용만으로 즉시 계산 가능하다.</strong></p>
+
+<p>이 구조를 게임에 이식하면, AI는 유저의 움직임을 오비탈로 분해하고, 그 분포가 밀집한 곳에 패턴을 쏜다. 유저가 피하면 분포가 바뀌고, AI는 다시 읽는다.</p>
+
+<p>부록 A는 그 아이디어가 방정식이 된 기록이다.</p>
+
+<p>이걸 굳이 다인 레이드에 쓰지 않는 이유는... 물리학을 공부해본 사람이라면 누구나 알 거라 생각한다. <strong>삼체 이상의 문제는 해석적으로 풀 수 없다고 증명되어 있다.</strong> 다인 레이드에는 반응-확산 방정식이나 큰 수의 법칙 같은 다른 메소드를 사용해야 한다.</p>
+
+<blockquote>
+<p><strong>주의:</strong> 부록 A와 본문 전부는 아이디어 수준의 가설입니다.</p>
+<p>본문에서는 쿨롱 퍼텐셜을 사용했지만, 실제 게임에서의 퍼텐셜이 \(1/r\) 형태일 거라고 생각하지는 않습니다. 예를 들어, 각 캐릭터의 스킬 사거리 끝에서 퍼텐셜이 아래로 파이는 구조가 더 현실적일 수 있습니다. 물론 이 경우에도 퍼텐셜 함수만 찾는다면 해가 존재하는 것은 변하지 않습니다.</p>
+<p>그 함수를 찾는 방법은? 역시 큰 수의 법칙에 근거한 빅데이터가 제일 나을 것 같습니다.</p>
+<p>새벽에 장난처럼 시작한 아이디어라, 깊은 검토를 거치지 않았고 수식에 대한 검증도 하지 않았습니다. 아이디어 수준으로 봐주시면 감사하겠습니다.</p>
+</blockquote>
+
+<hr />
+
+<blockquote>
+<strong>저자 주:</strong> 이 문서는 PDA 테크니컬 문서의 반응-확산 모델을 MMO 레이드에 적용한 사고 실험입니다. 모든 수식과 수치는 예시이며, 실제 적용 시에는 플레이테스트를 통한 검증이 필수입니다.
+</blockquote>
+
+        </div>
+        
+        <footer>
+            <p>MMO Raid Balancing Model — Concept Document</p>
+            <p>Based on PDA Technical Documentation methodology</p>
+        </footer>
+    </div>
+</body>
+</html>
